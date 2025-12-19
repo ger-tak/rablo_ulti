@@ -1,5 +1,5 @@
 import { shuffle } from './deck';
-import { getBidById } from './bids';
+import { getBidById, BIDS } from './bids';
 import { legalMoves as rulesLegalMoves, trickWinner as rulesTrickWinner } from './rules';
 import type { BidDefinition } from './bids';
 import type { Card, GameState, GameType, PlayerId, Suit, TrickState } from './types';
@@ -12,6 +12,9 @@ export interface EngineState extends GameState {
   talon: Card[];
   tricksWon: Record<PlayerId, Card[]>;
   selectedBidId?: string;
+  highestBidId?: string;
+  highestBidder?: PlayerId;
+  consecutivePasses: number;
   log: string[];
 }
 
@@ -45,6 +48,9 @@ export const newGame = (seed?: number): EngineState => {
     tricksWon: emptyTricksWon(),
     deck,
     selectedBidId: undefined,
+    highestBidId: undefined,
+    highestBidder: undefined,
+    consecutivePasses: 0,
     log: ['New game created']
   };
 
@@ -82,10 +88,113 @@ export const deal = (state: EngineState, cut: boolean): EngineState => {
     currentPlayer: bidder,
     trick: { leader: bidder, plays: [] },
     tricksWon: emptyTricksWon(),
+    highestBidId: undefined,
+    highestBidder: undefined,
+    consecutivePasses: 0,
     log: [...state.log, 'Cards dealt (12/10/10, talon later via discard)']
   };
 };
 
+const bidRank = (bidId?: string): number => {
+  if (!bidId) return -1;
+  const bid = getBidById(bidId);
+  return bid ? bid.rank : -1;
+};
+
+const ensureBiddingTurn = (state: EngineState, player: PlayerId) => {
+  if (state.phase !== 'BID') throw new Error('Not in bidding phase');
+  if (player !== state.currentPlayer) throw new Error('Not this player’s bidding turn');
+};
+
+export const bid = (state: EngineState, player: PlayerId, bidId: string): EngineState => {
+  ensureBiddingTurn(state, player);
+  if (bidId === 'passz') {
+    throw new Error('Use passBid for passing');
+  }
+
+  const currentRank = bidRank(state.highestBidId);
+  const nextBid = getBidById(bidId);
+  if (!nextBid) throw new Error('Unknown bid');
+  if (nextBid.rank <= currentRank) {
+    throw new Error('Bid must be higher than current highest');
+  }
+
+  const nextPlayerTurn = nextPlayer(player);
+
+  return {
+    ...state,
+    highestBidId: bidId,
+    highestBidder: player,
+    consecutivePasses: 0,
+    currentPlayer: nextPlayerTurn,
+    log: [...state.log, `P${player} bids ${nextBid.name}`]
+  };
+};
+
+const advanceAfterPasses = (state: EngineState): EngineState => {
+  if (!state.highestBidId || state.consecutivePasses < 2) {
+    return state;
+  }
+
+  const bid = getBidById(state.highestBidId);
+  if (!bid || state.highestBidder === undefined) return state;
+
+  const { gameType, trumpSuit } = deriveGameType(bid, state.trumpSuit);
+  if (bid.trump.kind === 'bidder') {
+    return {
+      ...state,
+      selectedBidId: state.highestBidId,
+      currentPlayer: state.highestBidder,
+      leader: state.highestBidder,
+      phase: 'DECLARE_TRUMP',
+      gameType,
+      log: [...state.log, `Bidding won by P${state.highestBidder} with ${bid.name}`]
+    };
+  }
+
+  return {
+    ...state,
+    selectedBidId: state.highestBidId,
+    currentPlayer: state.highestBidder,
+    leader: state.highestBidder,
+    phase: 'PLAY',
+    gameType,
+    trumpSuit,
+    trick: { leader: state.highestBidder, plays: [] },
+    log: [...state.log, `Bidding won by P${state.highestBidder} with ${bid.name}`]
+  };
+};
+
+export const passBid = (state: EngineState, player: PlayerId): EngineState => {
+  ensureBiddingTurn(state, player);
+
+  const nextState: EngineState = {
+    ...state,
+    consecutivePasses: state.consecutivePasses + 1,
+    currentPlayer: nextPlayer(player),
+    log: [...state.log, `P${player} passes`]
+  };
+
+  if (!nextState.highestBidId || nextState.consecutivePasses < 2) {
+    return nextState;
+  }
+
+  return advanceAfterPasses(nextState);
+};
+
+export const declareTrump = (state: EngineState, player: PlayerId, suit: Suit): EngineState => {
+  if (state.phase !== 'DECLARE_TRUMP') throw new Error('Not declaring trump right now');
+  if (player !== state.currentPlayer) throw new Error('Not this player’s turn');
+
+  return {
+    ...state,
+    trumpSuit: suit,
+    gameType: 'TRUMP',
+    phase: 'PLAY',
+    trick: { leader: state.leader, plays: [] },
+    log: [...state.log, `Trump declared as ${suit}`]
+  };
+};
 const deriveGameType = (bid: BidDefinition, trumpSuit?: Suit): { gameType: GameType; trumpSuit?: Suit } => {
   if (bid.trump.kind === 'none') {
     return { gameType: 'NO_TRUMP', trumpSuit: undefined };
@@ -119,12 +228,15 @@ export const startPlay = (state: EngineState, bidId: string, trumpSuit?: Suit): 
   };
 };
 
-export const enginelegalMoves = (state: EngineState, player: PlayerId): Card[] =>
+export const legalMoves = (state: EngineState, player: PlayerId): Card[] =>
   rulesLegalMoves(toRulesState(state), player);
 
 export const playCard = (state: EngineState, player: PlayerId, card: Card): EngineState => {
   if (player !== state.currentPlayer) {
     throw new Error(`Not player ${player}'s turn`);
+  }
+  if (state.phase !== 'PLAY') {
+    throw new Error('Cannot play a card outside of PLAY phase');
   }
 
   const hand = state.hands[player] ?? [];
@@ -133,7 +245,7 @@ export const playCard = (state: EngineState, player: PlayerId, card: Card): Engi
     throw new Error('Card not in hand');
   }
 
-  const legal = enginelegalMoves(state, player);
+  const legal = legalMoves(state, player);
   const isLegal = legal.some((c) => c.suit === card.suit && c.rank === card.rank);
   if (!isLegal) {
     throw new Error('Illegal card for this trick');

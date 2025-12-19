@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { enginelegalMoves, newGame, playCard } from './game';
+import { legalMoves, newGame, playCard, bid, passBid, declareTrump } from './game';
 import type { Card, EngineState } from './game';
 import { GameLog } from './ui/components/GameLog';
 import { PlayerHand } from './ui/components/PlayerHand';
@@ -7,6 +7,7 @@ import { TableLayout } from './ui/components/TableLayout';
 import { Toolbar } from './ui/components/Toolbar';
 import { TrickArea } from './ui/components/TrickArea';
 import { DebugPanel } from './ui/components/DebugPanel';
+import { BiddingPanel } from './ui/components/BiddingPanel';
 import './App.css';
 import './ui/styles.css';
 
@@ -25,7 +26,7 @@ function App() {
   };
 
   const legal = useMemo(
-    () => enginelegalMoves(state, state.currentPlayer),
+    () => legalMoves(state, state.currentPlayer),
     [state]
   );
 
@@ -97,6 +98,68 @@ function App() {
   const trick = state.trick;
   const log = [...state.log, ...messageLog];
 
+  const biddingPanel =
+    state.phase === 'BID' ? (
+      <BiddingPanel
+        currentPlayer={state.currentPlayer}
+        highestBidId={state.highestBidId}
+        onBid={handleBid}
+        onPass={handlePass}
+      />
+    ) : null;
+
+  const suitPicker =
+    state.phase === 'DECLARE_TRUMP' ? (
+      <div className="panel">
+        <div className="panel-header">
+          <div className="panel-title">Declare Trump</div>
+          <div className="panel-subtitle">Player {state.currentPlayer}</div>
+        </div>
+        <div className="panel-body pill-row">
+          {(['makk', 'tok', 'zold', 'piros'] as Card['suit'][]).map((suit) => (
+            <button
+              key={suit}
+              type="button"
+              className="secondary"
+              onClick={() => handleDeclareTrump(suit)}
+            >
+              {suit}
+            </button>
+          ))}
+        </div>
+      </div>
+    ) : null;
+
+  const handleBid = (bidId: string) => {
+    try {
+      const next = bid(state, state.currentPlayer, bidId);
+      setState(next);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Bid failed';
+      setMessageLog((prev) => [...prev, msg]);
+    }
+  };
+
+  const handlePass = () => {
+    try {
+      const next = passBid(state, state.currentPlayer);
+      setState(next);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Pass failed';
+      setMessageLog((prev) => [...prev, msg]);
+    }
+  };
+
+  const handleDeclareTrump = (suit: Card['suit']) => {
+    try {
+      const next = declareTrump(state, state.currentPlayer, suit);
+      setState(next);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Declare trump failed';
+      setMessageLog((prev) => [...prev, msg]);
+    }
+  };
+
   return (
     <div className="page">
       <Toolbar
@@ -108,6 +171,9 @@ function App() {
         onNewGame={handleNewGame}
       />
 
+      {biddingPanel}
+      {suitPicker}
+
       <div className="layout">
         <TableLayout
           bottom={
@@ -115,9 +181,9 @@ function App() {
               playerName="You"
               cards={hands[0]}
               orientation="horizontal"
-              isCurrent={state.currentPlayer === 0}
-              legalKeySet={legalKeySet}
-              onPlay={handlePlay}
+              isCurrent={state.phase === 'PLAY' && state.currentPlayer === 0}
+              legalKeySet={state.phase === 'PLAY' ? legalKeySet : undefined}
+              onPlay={state.phase === 'PLAY' ? handlePlay : undefined}
             />
           }
           left={
@@ -125,9 +191,9 @@ function App() {
               playerName="Player 1"
               cards={hands[1]}
               orientation="vertical"
-              isCurrent={state.currentPlayer === 1}
-              legalKeySet={legalKeySet}
-              onPlay={handlePlay}
+              isCurrent={state.phase === 'PLAY' && state.currentPlayer === 1}
+              legalKeySet={state.phase === 'PLAY' ? legalKeySet : undefined}
+              onPlay={state.phase === 'PLAY' ? handlePlay : undefined}
             />
           }
           right={
@@ -135,9 +201,9 @@ function App() {
               playerName="Player 2"
               cards={hands[2]}
               orientation="vertical"
-              isCurrent={state.currentPlayer === 2}
-              legalKeySet={legalKeySet}
-              onPlay={handlePlay}
+              isCurrent={state.phase === 'PLAY' && state.currentPlayer === 2}
+              legalKeySet={state.phase === 'PLAY' ? legalKeySet : undefined}
+              onPlay={state.phase === 'PLAY' ? handlePlay : undefined}
             />
           }
           center={

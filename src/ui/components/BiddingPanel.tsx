@@ -54,24 +54,6 @@ export const BiddingPanel = ({
     });
   };
 
-  const [selected, setSelected] = useState<number[]>([]);
-
-  useEffect(() => {
-    setSelected([]);
-  }, [hand, bidNeedsDiscard]);
-
-  const selectedCards = useMemo(() => selected.map((idx) => hand[idx]), [selected, hand]);
-
-  const toggleCard = (idx: number) => {
-    setSelected((prev) => {
-      if (prev.includes(idx)) {
-        return prev.filter((i) => i !== idx);
-      }
-      if (prev.length >= 2) return prev;
-      return [...prev, idx];
-    });
-  };
-
   return (
     <div className="panel">
       <div className="panel-header">

@@ -169,8 +169,6 @@ function App() {
             bidNeedsDiscard={state.bidNeedsDiscard}
             bidAwaitingTalonDecision={state.bidAwaitingTalonDecision}
             requireRaiseAfterTake={state.requireRaiseAfterTake}
-            bidNeedsDiscard={state.bidNeedsDiscard}
-            bidAwaitingTalonDecision={state.bidAwaitingTalonDecision}
             hand={hands[state.currentPlayer]}
             onBid={handleBid}
             onPass={handlePass}

@@ -181,6 +181,74 @@ describe('engine2 talon decision after passes', () => {
 
     expect(() => declineTalon(state, 1)).toThrow(/Player 1 must have 10 cards/);
   });
+
+  it('finalizes bidder-trump bids into DECLARE_TRUMP', () => {
+    const state = makeState({
+      phase: 'BID',
+      highestBidId: 'negyvenszaz_40_100',
+      highestBidder: 2,
+      trumpSuit: undefined,
+      bidAwaitingTalonDecision: true,
+      currentPlayer: 2,
+      leader: 2,
+      hands: {
+        0: Array(10).fill(card('makk', '7')),
+        1: Array(10).fill(card('tok', '7')),
+        2: Array(10).fill(card('zold', '7'))
+      }
+    });
+
+    const next = declineTalon(state, 2);
+    expect(next.phase).toBe('DECLARE_TRUMP');
+    expect(next.trumpSuit).toBeUndefined();
+    expect(next.gameType).toBe('TRUMP');
+    expect(next.leader).toBe(2);
+  });
+
+  it('finalizes fixed piros bids into PLAY with trump suit', () => {
+    const state = makeState({
+      phase: 'BID',
+      highestBidId: 'piros_40_100',
+      highestBidder: 1,
+      bidAwaitingTalonDecision: true,
+      currentPlayer: 1,
+      leader: 1,
+      hands: {
+        0: Array(10).fill(card('makk', '7')),
+        1: Array(10).fill(card('tok', '7')),
+        2: Array(10).fill(card('zold', '7'))
+      }
+    });
+
+    const next = declineTalon(state, 1);
+    expect(next.phase).toBe('PLAY');
+    expect(next.gameType).toBe('TRUMP');
+    expect(next.trumpSuit).toBe('piros');
+    expect(next.leader).toBe(1);
+    expect(next.trick.leader).toBe(1);
+  });
+
+  it('finalizes no-trump bids into PLAY with NO_TRUMP type', () => {
+    const state = makeState({
+      phase: 'BID',
+      highestBidId: 'pirosbetli',
+      highestBidder: 0,
+      bidAwaitingTalonDecision: true,
+      currentPlayer: 0,
+      leader: 0,
+      hands: {
+        0: Array(10).fill(card('makk', '7')),
+        1: Array(10).fill(card('tok', '7')),
+        2: Array(10).fill(card('zold', '7'))
+      }
+    });
+
+    const next = declineTalon(state, 0);
+    expect(next.phase).toBe('PLAY');
+    expect(next.gameType).toBe('NO_TRUMP');
+    expect(next.trumpSuit).toBeUndefined();
+    expect(next.leader).toBe(0);
+  });
 });
 
 const twelveCardHand: Card[] = [

@@ -98,6 +98,36 @@ function App() {
   const trick = state.trick;
   const log = [...state.log, ...messageLog];
 
+  const handleBid = (bidId: string) => {
+    try {
+      const next = bid(state, state.currentPlayer, bidId);
+      setState(next);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Bid failed';
+      setMessageLog((prev) => [...prev, msg]);
+    }
+  };
+
+  const handlePass = () => {
+    try {
+      const next = passBid(state, state.currentPlayer);
+      setState(next);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Pass failed';
+      setMessageLog((prev) => [...prev, msg]);
+    }
+  };
+
+  const handleDeclareTrump = (suit: Card['suit']) => {
+    try {
+      const next = declareTrump(state, state.currentPlayer, suit);
+      setState(next);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Declare trump failed';
+      setMessageLog((prev) => [...prev, msg]);
+    }
+  };
+
   const overlay = (() => {
     if (state.phase === 'BID') {
       return (
@@ -137,36 +167,6 @@ function App() {
     }
     return null;
   })();
-
-  const handleBid = (bidId: string) => {
-    try {
-      const next = bid(state, state.currentPlayer, bidId);
-      setState(next);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Bid failed';
-      setMessageLog((prev) => [...prev, msg]);
-    }
-  };
-
-  const handlePass = () => {
-    try {
-      const next = passBid(state, state.currentPlayer);
-      setState(next);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Pass failed';
-      setMessageLog((prev) => [...prev, msg]);
-    }
-  };
-
-  const handleDeclareTrump = (suit: Card['suit']) => {
-    try {
-      const next = declareTrump(state, state.currentPlayer, suit);
-      setState(next);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Declare trump failed';
-      setMessageLog((prev) => [...prev, msg]);
-    }
-  };
 
   return (
     <div className="page">

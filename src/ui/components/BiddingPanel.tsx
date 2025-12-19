@@ -22,7 +22,7 @@ export const BiddingPanel = ({
 }: BiddingPanelProps) => {
   const highestBid = highestBidId ? BIDS.find((b) => b.id === highestBidId) : undefined;
   const highestRank = highestBid ? highestBid.rank : -1;
-  const highestName = highestBid ? highestBid.name : 'None yet';
+  const highestName = highestBid ? highestBid.name : 'Passz';
   const nextBids = BIDS.filter((b) => b.id !== 'passz' && b.rank > highestRank);
 
   const [selected, setSelected] = useState<number[]>([]);

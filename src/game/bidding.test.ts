@@ -20,8 +20,8 @@ describe('bidding', () => {
     const afterPass1 = passBid(afterBid, afterBid.currentPlayer);
     const afterPass2 = passBid(afterPass1, afterPass1.currentPlayer);
 
-    expect(afterPass2.phase).toBe('DECLARE_TRUMP');
-    expect(afterPass2.selectedBidId).toBe('negyvenszaz_40_100');
+    expect(afterPass2.bidAwaitingTalonDecision).toBe(true);
+    expect(afterPass2.phase).toBe('BID');
     expect(afterPass2.currentPlayer).toBe(afterPass2.leader);
   });
 
@@ -33,9 +33,8 @@ describe('bidding', () => {
     const afterPass1 = passBid(afterBid, afterBid.currentPlayer);
     const afterPass2 = passBid(afterPass1, afterPass1.currentPlayer);
 
-    expect(afterPass2.phase).toBe('PLAY');
-    expect(afterPass2.gameType).toBe('NO_TRUMP');
-    expect(afterPass2.trumpSuit).toBeUndefined();
+    expect(afterPass2.bidAwaitingTalonDecision).toBe(true);
+    expect(afterPass2.phase).toBe('BID');
   });
 
   it('declareTrump sets suit and enters play', () => {
@@ -45,10 +44,21 @@ describe('bidding', () => {
     const afterBid = bid(discarded, discarded.currentPlayer, 'negyvenszaz_40_100');
     const afterPass1 = passBid(afterBid, afterBid.currentPlayer);
     const afterPass2 = passBid(afterPass1, afterPass1.currentPlayer);
-    const afterDeclare = declareTrump(afterPass2, afterPass2.currentPlayer, 'piros');
+    expect(afterPass2.bidAwaitingTalonDecision).toBe(true);
+    expect(() => declareTrump(afterPass2, afterPass2.currentPlayer, 'piros')).toThrow();
+  });
 
-    expect(afterDeclare.phase).toBe('PLAY');
-    expect(afterDeclare.trumpSuit).toBe('piros');
-    expect(afterDeclare.gameType).toBe('TRUMP');
+  it('ends bidding with passz when everyone passes', () => {
+    const state = newGame(5);
+    const discarder = state.currentPlayer;
+    const discarded = discardToTalon(state, discarder, state.hands[discarder].slice(0, 2));
+    const afterPass1 = passBid(discarded, discarded.currentPlayer);
+    const afterPass2 = passBid(afterPass1, afterPass1.currentPlayer);
+
+    expect(afterPass2.phase).toBe('DECLARE_TRUMP');
+    expect(afterPass2.selectedBidId).toBe('passz');
+    expect(afterPass2.highestBidId).toBe('passz');
+    expect(afterPass2.currentPlayer).toBe(discarder);
+    expect(afterPass2.leader).toBe(discarder);
   });
 });

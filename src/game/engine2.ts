@@ -117,8 +117,8 @@ export const deal = (state: EngineState, cut: boolean): EngineState => {
     currentPlayer: bidder,
     trick: { leader: bidder, plays: [] },
     tricksWon: emptyTricksWon(),
-    highestBidId: undefined,
-    highestBidder: undefined,
+    highestBidId: 'passz',
+    highestBidder: bidder,
     consecutivePasses: 0,
     hasNonPassBid: false,
     bidNeedsDiscard: true,
@@ -215,37 +215,36 @@ export const bid = (state: EngineState, player: PlayerId, bidId: string): Engine
   return nextState;
 };
 
-const advanceAfterPasses = (state: EngineState): EngineState => {
-  if (!state.highestBidId || state.consecutivePasses < 2) {
-    return state;
-  }
+const finalizePassingBid = (state: EngineState): EngineState => {
+  const bid = getBidById('passz');
+  if (!bid) return state;
 
-  const bid = getBidById(state.highestBidId);
-  if (!bid || state.highestBidder === undefined) return state;
-
+  const bidder = state.highestBidder ?? state.currentPlayer;
   const { gameType, trumpSuit } = deriveGameType(bid, state.trumpSuit);
   if (bid.trump.kind === 'bidder') {
     return {
       ...state,
-      selectedBidId: state.highestBidId,
-      currentPlayer: state.highestBidder,
-      leader: state.highestBidder,
+      highestBidId: 'passz',
+      selectedBidId: 'passz',
+      currentPlayer: bidder,
+      leader: bidder,
       phase: 'DECLARE_TRUMP',
       gameType,
-      log: [...state.log, `Bidding won by P${state.highestBidder} with ${bid.name}`]
+      log: [...state.log, `Bidding won by P${bidder} with ${bid.name}`]
     };
   }
 
   const prepared = prepareForPlay({
     ...state,
-    selectedBidId: state.highestBidId,
-    currentPlayer: state.highestBidder,
-    leader: state.highestBidder,
+    highestBidId: 'passz',
+    selectedBidId: 'passz',
+    currentPlayer: bidder,
+    leader: bidder,
     phase: 'PLAY',
     gameType,
     trumpSuit,
-    trick: { leader: state.highestBidder, plays: [] },
-    log: [...state.log, `Bidding won by P${state.highestBidder} with ${bid.name}`]
+    trick: { leader: bidder, plays: [] },
+    log: [...state.log, `Bidding won by P${bidder} with ${bid.name}`]
   });
 
   return prepared;
@@ -269,9 +268,23 @@ export const passBid = (state: EngineState, player: PlayerId): EngineState => {
     return nextState;
   }
 
-  const advancedState = advanceAfterPasses(nextState);
-  assertEngineInvariants(advancedState);
-  return advancedState;
+  if (!nextState.hasNonPassBid) {
+    const finalized = finalizePassingBid(nextState);
+    assertEngineInvariants(finalized);
+    return finalized;
+  }
+
+  const pausedState: EngineState = {
+    ...nextState,
+    bidAwaitingTalonDecision: true,
+    consecutivePasses: 0,
+    currentPlayer: nextState.highestBidder ?? nextState.currentPlayer,
+    leader: nextState.highestBidder ?? nextState.leader,
+    log: [...nextState.log, 'Awaiting talon decision']
+  };
+
+  assertEngineInvariants(pausedState);
+  return pausedState;
 };
 
 export const declareTrump = (state: EngineState, player: PlayerId, suit: Suit): EngineState => {

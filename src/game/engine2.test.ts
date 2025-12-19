@@ -100,6 +100,7 @@ describe('engine2 playCard', () => {
     expect(afterThird.leader).toBe(2);
     expect(afterThird.currentPlayer).toBe(2);
     expect(afterThird.trick.plays).toHaveLength(0);
+    expect(afterThird.trickIndex).toBe(10);
     expect(afterThird.phase).toBe('ROUND_END');
   });
 });

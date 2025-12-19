@@ -53,6 +53,9 @@ describe('announceBela', () => {
 
     const laterTrick = makeState({ trickIndex: 1 });
     expect(() => announceBela(laterTrick, 0, 'piros')).toThrow();
+
+    const notCurrent = makeState({ currentPlayer: 1 });
+    expect(() => announceBela(notCurrent, 0, 'piros')).toThrow();
   });
 
   it('records trump and non-trump values', () => {

@@ -27,6 +27,9 @@ export const RoundSummary = ({ score, onNextRound }: RoundSummaryProps) => {
             <strong>Trick points:</strong> Bidder {score.trickPointsBidder} / Defenders {score.trickPointsDefenders}
           </div>
           <div className="summary-row">
+            <strong>Béla points:</strong> Bidder {score.belaPointsBidder} / Defenders {score.belaPointsDefenders}
+          </div>
+          <div className="summary-row">
             <strong>Payouts:</strong>
             <ul>
               {payoutEntries.map(([pid, amount]) => (

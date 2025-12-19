@@ -30,6 +30,7 @@ function App() {
   const [logOpen, setLogOpen] = useState(false);
   const [state, setState] = useState<EngineState>(() => newGame());
   const [messageLog, setMessageLog] = useState<string[]>([]);
+  const [belaMenuOpen, setBelaMenuOpen] = useState(false);
 
   const handleNewGame = () => {
     const trimmed = seed.trim();
@@ -176,6 +177,7 @@ function App() {
     try {
       const next = announceBela(state, state.currentPlayer, suit);
       setState(next);
+      setBelaMenuOpen(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Béla announcement failed';
       setMessageLog((prev) => [...prev, msg]);
@@ -279,6 +281,12 @@ function App() {
     });
   }, [state]);
 
+  useEffect(() => {
+    if (eligibleBelaSuits.length === 0) {
+      setBelaMenuOpen(false);
+    }
+  }, [eligibleBelaSuits.length]);
+
   const canCallKontra =
     state.phase === 'PLAY' && state.trickIndex === 0 && state.trick.plays.length === 0;
 
@@ -349,17 +357,39 @@ function App() {
         <div className="action-bar">
           {eligibleBelaSuits.length > 0 && (
             <div className="action-group">
-              <span>Announce Béla:</span>
-              {eligibleBelaSuits.map((suit) => (
-                <button
-                  key={suit}
-                  type="button"
-                  className="secondary"
-                  onClick={() => handleAnnounceBela(suit)}
-                >
-                  {suit}
-                </button>
-              ))}
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setBelaMenuOpen((open) => !open)}
+              >
+                Announce Béla
+              </button>
+              {belaMenuOpen && (
+                <div className="pill-row">
+                  {eligibleBelaSuits.map((suit) => (
+                    <button
+                      key={suit}
+                      type="button"
+                      className="secondary"
+                      onClick={() => handleAnnounceBela(suit)}
+                    >
+                      {suit}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          {state.belaAnnouncements.length > 0 && (
+            <div className="action-group">
+              <span>Announced Béla:</span>
+              <ul className="inline-list">
+                {state.belaAnnouncements.map((ann, idx) => (
+                  <li key={`${ann.player}-${ann.suit}-${idx}`}>
+                    P{ann.player}: {ann.suit} ({ann.value})
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
           {canCallKontra && (

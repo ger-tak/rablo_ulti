@@ -2,7 +2,7 @@ import { BIDS } from '../../game';
 
 interface BiddingPanelProps {
   currentPlayer: number;
-  highestBidId?: string;
+  highestBidId?: string | undefined;
   onBid: (bidId: string) => void;
   onPass: () => void;
 }

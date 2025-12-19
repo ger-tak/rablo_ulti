@@ -1,4 +1,4 @@
-import type { Card, PlayerId, TrickPlay } from '../../game/types';
+import type { PlayerId, TrickPlay } from '../../game/types';
 
 interface TrickAreaProps {
   leader: PlayerId;

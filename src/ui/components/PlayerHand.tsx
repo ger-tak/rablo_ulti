@@ -4,9 +4,9 @@ interface PlayerHandProps {
   playerName: string;
   cards: Card[];
   orientation?: 'horizontal' | 'vertical';
-  isCurrent?: boolean;
-  legalKeySet?: Set<string>;
-  onPlay?: (card: Card) => void;
+  isCurrent?: boolean | undefined;
+  legalKeySet?: Set<string> | undefined;
+  onPlay?: ((card: Card) => void) | undefined;
 }
 
 export const PlayerHand = ({

@@ -84,6 +84,6 @@ export const trickWinner = (state: GameState): PlayerId => {
   if (state.trick.plays.length !== 3) {
     throw new Error('Trick is incomplete');
   }
-  const { play, ledSuit } = currentWinningPlay(state);
+  const { play } = currentWinningPlay(state);
   return play.player;
 };

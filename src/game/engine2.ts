@@ -1,5 +1,5 @@
 import { shuffle } from './deck';
-import { getBidById, BIDS } from './bids';
+import { getBidById } from './bids';
 import { legalMoves as rulesLegalMoves, trickWinner as rulesTrickWinner } from './rules';
 import type { BidDefinition } from './bids';
 import type { Card, GameState, GameType, PlayerId, Suit, TrickState } from './types';
@@ -11,10 +11,14 @@ export interface EngineState extends GameState {
   dealer: PlayerId;
   talon: Card[];
   tricksWon: Record<PlayerId, Card[]>;
-  selectedBidId?: string;
-  highestBidId?: string;
-  highestBidder?: PlayerId;
+  selectedBidId?: string | undefined;
+  highestBidId?: string | undefined;
+  highestBidder?: PlayerId | undefined;
   consecutivePasses: number;
+  hasNonPassBid: boolean;
+  bidNeedsDiscard: boolean;
+  bidAwaitingTalonDecision: boolean;
+  requireRaiseAfterTake: boolean;
   log: string[];
 }
 
@@ -51,6 +55,10 @@ export const newGame = (seed?: number): EngineState => {
     highestBidId: undefined,
     highestBidder: undefined,
     consecutivePasses: 0,
+    hasNonPassBid: false,
+    bidNeedsDiscard: false,
+    bidAwaitingTalonDecision: false,
+    requireRaiseAfterTake: false,
     log: ['New game created']
   };
 
@@ -69,8 +77,6 @@ export const deal = (state: EngineState, cut: boolean): EngineState => {
 
   const first = nextPlayer(state.dealer);
   const second = nextPlayer(first);
-  const order: PlayerId[] = [first, second, state.dealer];
-
   const hands: Record<PlayerId, Card[]> = { 0: [], 1: [], 2: [] };
   hands[first] = deck.slice(0, 12);
   hands[second] = deck.slice(12, 22);
@@ -91,6 +97,10 @@ export const deal = (state: EngineState, cut: boolean): EngineState => {
     highestBidId: undefined,
     highestBidder: undefined,
     consecutivePasses: 0,
+    hasNonPassBid: false,
+    bidNeedsDiscard: false,
+    bidAwaitingTalonDecision: false,
+    requireRaiseAfterTake: false,
     log: [...state.log, 'Cards dealt (12/10/10, talon later via discard)']
   };
 };
@@ -125,6 +135,7 @@ export const bid = (state: EngineState, player: PlayerId, bidId: string): Engine
     ...state,
     highestBidId: bidId,
     highestBidder: player,
+    hasNonPassBid: true,
     consecutivePasses: 0,
     currentPlayer: nextPlayerTurn,
     log: [...state.log, `P${player} bids ${nextBid.name}`]
@@ -195,14 +206,17 @@ export const declareTrump = (state: EngineState, player: PlayerId, suit: Suit): 
     log: [...state.log, `Trump declared as ${suit}`]
   };
 };
-const deriveGameType = (bid: BidDefinition, trumpSuit?: Suit): { gameType: GameType; trumpSuit?: Suit } => {
+const deriveGameType = (
+  bid: BidDefinition,
+  trumpSuit?: Suit
+): { gameType: GameType; trumpSuit?: Suit } => {
   if (bid.trump.kind === 'none') {
-    return { gameType: 'NO_TRUMP', trumpSuit: undefined };
+    return { gameType: 'NO_TRUMP' };
   }
   if (bid.trump.kind === 'piros') {
     return { gameType: 'TRUMP', trumpSuit: 'piros' };
   }
-  return { gameType: 'TRUMP', trumpSuit };
+  return trumpSuit ? { gameType: 'TRUMP', trumpSuit } : { gameType: 'TRUMP' };
 };
 
 export const startPlay = (state: EngineState, bidId: string, trumpSuit?: Suit): EngineState => {
@@ -240,8 +254,8 @@ export const playCard = (state: EngineState, player: PlayerId, card: Card): Engi
   }
 
   const hand = state.hands[player] ?? [];
-  const cardInHand = hand.find((c) => c.suit === card.suit && c.rank === card.rank);
-  if (!cardInHand) {
+  const cardIndex = hand.findIndex((c) => c.suit === card.suit && c.rank === card.rank);
+  if (cardIndex === -1) {
     throw new Error('Card not in hand');
   }
 
@@ -251,7 +265,7 @@ export const playCard = (state: EngineState, player: PlayerId, card: Card): Engi
     throw new Error('Illegal card for this trick');
   }
 
-  const updatedHand = hand.filter((c, idx) => idx !== hand.indexOf(cardInHand));
+  const updatedHand = hand.filter((_, idx) => idx !== cardIndex);
   const updatedHands = {
     ...state.hands,
     [player]: updatedHand

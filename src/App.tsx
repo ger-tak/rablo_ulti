@@ -229,6 +229,8 @@ function App() {
           <DebugPanel state={state} legalMoves={legal} />
         </div>
       </div>
+
+      {overlay}
     </div>
   );
 }

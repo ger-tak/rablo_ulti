@@ -33,7 +33,7 @@ export interface GameState {
   hands: Record<PlayerId, Card[]>;
   talon: Card[];
   contract: string | null;
-  trumpSuit?: Suit;
+  trumpSuit?: Suit | undefined;
   isRedPrefix: boolean;
   trick: TrickState;
   tricksWon: Record<PlayerId, Card[]>;

@@ -21,7 +21,7 @@ export interface TrickState {
 
 export interface GameState {
   gameType: GameType;
-  trumpSuit?: Suit;
+  trumpSuit?: Suit | undefined;
   hands: Record<PlayerId, Card[]>;
   trick: TrickState;
   leader: PlayerId;

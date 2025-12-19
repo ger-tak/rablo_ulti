@@ -17,6 +17,14 @@ const makeState = (overrides: Partial<EngineState>): EngineState => ({
   trick: { leader: 0, plays: [] },
   tricksWon: { 0: [], 1: [], 2: [] },
   deck: [],
+  selectedBidId: undefined,
+  highestBidId: undefined,
+  highestBidder: undefined,
+  consecutivePasses: 0,
+  hasNonPassBid: false,
+  bidNeedsDiscard: false,
+  bidAwaitingTalonDecision: false,
+  requireRaiseAfterTake: false,
   log: [],
   ...overrides
 });

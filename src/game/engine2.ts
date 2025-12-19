@@ -215,8 +215,8 @@ export const bid = (state: EngineState, player: PlayerId, bidId: string): Engine
   return nextState;
 };
 
-const finalizePassingBid = (state: EngineState): EngineState => {
-  const bid = getBidById('passz');
+const finalizeBid = (state: EngineState, bidId: string, bidder: PlayerId): EngineState => {
+  const bid = getBidById(bidId);
   if (!bid) return state;
 
   const bidder = state.highestBidder ?? state.currentPlayer;
@@ -224,8 +224,11 @@ const finalizePassingBid = (state: EngineState): EngineState => {
   if (bid.trump.kind === 'bidder') {
     return {
       ...state,
-      highestBidId: 'passz',
-      selectedBidId: 'passz',
+      highestBidId: bidId,
+      selectedBidId: bidId,
+      bidAwaitingTalonDecision: false,
+      bidNeedsDiscard: false,
+      consecutivePasses: 0,
       currentPlayer: bidder,
       leader: bidder,
       phase: 'DECLARE_TRUMP',
@@ -236,8 +239,11 @@ const finalizePassingBid = (state: EngineState): EngineState => {
 
   const prepared = prepareForPlay({
     ...state,
-    highestBidId: 'passz',
-    selectedBidId: 'passz',
+    highestBidId: bidId,
+    selectedBidId: bidId,
+    bidAwaitingTalonDecision: false,
+    bidNeedsDiscard: false,
+    consecutivePasses: 0,
     currentPlayer: bidder,
     leader: bidder,
     phase: 'PLAY',
@@ -269,7 +275,7 @@ export const passBid = (state: EngineState, player: PlayerId): EngineState => {
   }
 
   if (!nextState.hasNonPassBid) {
-    const finalized = finalizePassingBid(nextState);
+    const finalized = finalizeBid(nextState, 'passz', nextState.highestBidder ?? nextState.currentPlayer);
     assertEngineInvariants(finalized);
     return finalized;
   }
@@ -285,6 +291,38 @@ export const passBid = (state: EngineState, player: PlayerId): EngineState => {
 
   assertEngineInvariants(pausedState);
   return pausedState;
+};
+
+export const takeTalon = (state: EngineState, player: PlayerId): EngineState => {
+  if (!state.bidAwaitingTalonDecision) throw new Error('Not awaiting talon decision');
+  if (player !== state.highestBidder) throw new Error('Only the highest bidder may take the talon');
+
+  const newHand = [...state.hands[player], ...state.talon];
+  const hands = { ...state.hands, [player]: newHand } as Record<PlayerId, Card[]>;
+
+  const nextState: EngineState = {
+    ...state,
+    hands,
+    talon: [],
+    bidNeedsDiscard: true,
+    requireRaiseAfterTake: true,
+    bidAwaitingTalonDecision: false,
+    consecutivePasses: 0,
+    currentPlayer: player
+  };
+
+  assertEngineInvariants(nextState);
+  return nextState;
+};
+
+export const declineTalon = (state: EngineState, player: PlayerId): EngineState => {
+  if (!state.bidAwaitingTalonDecision) throw new Error('Not awaiting talon decision');
+  if (player !== state.highestBidder) throw new Error('Only the highest bidder may decline the talon');
+  if (!state.highestBidId) throw new Error('No highest bid to finalize');
+
+  const finalized = finalizeBid(state, state.highestBidId, player);
+  assertEngineInvariants(finalized);
+  return finalized;
 };
 
 export const declareTrump = (state: EngineState, player: PlayerId, suit: Suit): EngineState => {

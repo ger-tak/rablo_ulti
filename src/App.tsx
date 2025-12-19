@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { engineLegalMoves, newGame, playCard, bid, passBid, declareTrump, discardToTalon } from './game';
+import { engineLegalMoves, newGame, playCard, bid, passBid, declareTrump, discardToTalon, takeTalon, declineTalon } from './game';
 import type { Card, EngineState } from './game';
 import { GameLog } from './ui/components/GameLog';
 import { PlayerHand } from './ui/components/PlayerHand';
@@ -118,6 +118,26 @@ function App() {
     }
   };
 
+  const handleTakeTalon = () => {
+    try {
+      const next = takeTalon(state, state.currentPlayer);
+      setState(next);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Talon take failed';
+      setMessageLog((prev) => [...prev, msg]);
+    }
+  };
+
+  const handleDeclineTalon = () => {
+    try {
+      const next = declineTalon(state, state.currentPlayer);
+      setState(next);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Decline talon failed';
+      setMessageLog((prev) => [...prev, msg]);
+    }
+  };
+
   const handleDeclareTrump = (suit: Card['suit']) => {
     try {
       const next = declareTrump(state, state.currentPlayer, suit);
@@ -146,10 +166,13 @@ function App() {
             currentPlayer={state.currentPlayer}
             highestBidId={state.highestBidId}
             bidNeedsDiscard={state.bidNeedsDiscard}
+            bidAwaitingTalonDecision={state.bidAwaitingTalonDecision}
             hand={hands[state.currentPlayer]}
             onBid={handleBid}
             onPass={handlePass}
             onDiscard={handleDiscardToTalon}
+            onTakeTalon={handleTakeTalon}
+            onDeclineTalon={handleDeclineTalon}
           />
         </div>
       );

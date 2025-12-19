@@ -5,20 +5,26 @@ interface BiddingPanelProps {
   currentPlayer: number;
   highestBidId?: string | undefined;
   bidNeedsDiscard: boolean;
+  bidAwaitingTalonDecision: boolean;
   hand: Card[];
   onBid: (bidId: string) => void;
   onPass: () => void;
   onDiscard: (cards: Card[]) => void;
+  onTakeTalon: () => void;
+  onDeclineTalon: () => void;
 }
 
 export const BiddingPanel = ({
   currentPlayer,
   highestBidId,
   bidNeedsDiscard,
+  bidAwaitingTalonDecision,
   hand,
   onBid,
   onPass,
-  onDiscard
+  onDiscard,
+  onTakeTalon,
+  onDeclineTalon
 }: BiddingPanelProps) => {
   const highestBid = highestBidId ? BIDS.find((b) => b.id === highestBidId) : undefined;
   const highestRank = highestBid ? highestBid.rank : -1;
@@ -52,7 +58,16 @@ export const BiddingPanel = ({
         </div>
       </div>
       <div className="panel-body">
-        {bidNeedsDiscard ? (
+        {bidAwaitingTalonDecision ? (
+          <div className="panel-actions">
+            <button type="button" className="primary" onClick={onTakeTalon}>
+              Take Talon
+            </button>
+            <button type="button" className="secondary" onClick={onDeclineTalon}>
+              Decline Talon
+            </button>
+          </div>
+        ) : bidNeedsDiscard ? (
           <>
             <div className="pill muted">Discard 2 cards to the talon before bidding</div>
             <div className="pill-row">

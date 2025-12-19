@@ -144,6 +144,43 @@ describe('engine2 talon decision after passes', () => {
     expect(afterTake.bidAwaitingTalonDecision).toBe(false);
     expect(afterTake.currentPlayer).toBe(1);
   });
+
+  it('enforces raise requirement after taking the talon', () => {
+    const state = makeState({
+      phase: 'BID',
+      highestBidId: 'negyvenszaz_40_100',
+      highestBidder: 1,
+      requireRaiseAfterTake: true,
+      bidNeedsDiscard: false,
+      currentPlayer: 1,
+      hands: {
+        0: Array(10).fill(card('makk', '7')),
+        1: Array(10).fill(card('tok', '7')),
+        2: Array(10).fill(card('zold', '7'))
+      }
+    });
+
+    expect(() => bid(state, 1, 'negyvenszaz_40_100')).toThrow(/raise/);
+    const afterRaise = bid(state, 1, 'ulti');
+    expect(afterRaise.requireRaiseAfterTake).toBe(false);
+    expect(afterRaise.highestBidId).toBe('ulti');
+  });
+
+  it('rejects finalizing play when hands are unbalanced', () => {
+    const state = makeState({
+      phase: 'BID',
+      highestBidId: 'pirosbetli',
+      highestBidder: 1,
+      bidAwaitingTalonDecision: true,
+      hands: {
+        0: Array(10).fill(card('makk', '7')),
+        1: Array(12).fill(card('tok', '7')),
+        2: Array(10).fill(card('zold', '7'))
+      }
+    });
+
+    expect(() => declineTalon(state, 1)).toThrow(/Player 1 must have 10 cards/);
+  });
 });
 
 const twelveCardHand: Card[] = [

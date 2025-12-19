@@ -165,6 +165,10 @@ function App() {
           <BiddingPanel
             currentPlayer={state.currentPlayer}
             highestBidId={state.highestBidId}
+            highestBidder={state.highestBidder}
+            bidNeedsDiscard={state.bidNeedsDiscard}
+            bidAwaitingTalonDecision={state.bidAwaitingTalonDecision}
+            requireRaiseAfterTake={state.requireRaiseAfterTake}
             bidNeedsDiscard={state.bidNeedsDiscard}
             bidAwaitingTalonDecision={state.bidAwaitingTalonDecision}
             hand={hands[state.currentPlayer]}

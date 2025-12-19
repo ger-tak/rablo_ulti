@@ -191,6 +191,14 @@ export const bid = (state: EngineState, player: PlayerId, bidId: string): Engine
   if (state.bidNeedsDiscard) {
     throw new Error('Must discard 2 cards to talon before bidding');
   }
+  if (state.requireRaiseAfterTake && player === state.highestBidder) {
+    const currentRank = bidRank(state.highestBidId);
+    const nextBid = getBidById(bidId);
+    if (!nextBid) throw new Error('Unknown bid');
+    if (nextBid.rank <= currentRank) {
+      throw new Error('Highest bidder must raise after taking talon');
+    }
+  }
 
   const currentRank = bidRank(state.highestBidId);
   const nextBid = getBidById(bidId);
@@ -206,6 +214,7 @@ export const bid = (state: EngineState, player: PlayerId, bidId: string): Engine
     highestBidId: bidId,
     highestBidder: player,
     hasNonPassBid: true,
+    requireRaiseAfterTake: player === state.highestBidder ? false : state.requireRaiseAfterTake,
     consecutivePasses: 0,
     currentPlayer: nextPlayerTurn,
     log: [...state.log, `P${player} bids ${nextBid.name}`]
@@ -218,6 +227,17 @@ export const bid = (state: EngineState, player: PlayerId, bidId: string): Engine
 const finalizeBid = (state: EngineState, bidId: string, bidder: PlayerId): EngineState => {
   const bid = getBidById(bidId);
   if (!bid) return state;
+
+  if (state.bidNeedsDiscard) {
+    throw new Error('Cannot finalize bidding while discard to talon is still required');
+  }
+
+  const handSizes = [state.hands[0].length, state.hands[1].length, state.hands[2].length];
+  handSizes.forEach((size, idx) => {
+    if (size !== 10) {
+      throw new Error(`Player ${idx} must have 10 cards to start play (got ${size})`);
+    }
+  });
 
   const bidder = state.highestBidder ?? state.currentPlayer;
   const { gameType, trumpSuit } = deriveGameType(bid, state.trumpSuit);

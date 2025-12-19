@@ -219,6 +219,7 @@ const finalizeBid = (state: EngineState, bidId: string, bidder: PlayerId): Engin
   const bid = getBidById(bidId);
   if (!bid) return state;
 
+  const bidder = state.highestBidder ?? state.currentPlayer;
   const { gameType, trumpSuit } = deriveGameType(bid, state.trumpSuit);
   if (bid.trump.kind === 'bidder') {
     return {

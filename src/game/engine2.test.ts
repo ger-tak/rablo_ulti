@@ -47,9 +47,9 @@ describe('engine2 playCard', () => {
       gameType: 'TRUMP',
       trumpSuit: 'piros',
       hands: {
-        0: [card('makk', 'A')],
+        0: [card('makk', 'A'), card('piros', '7')],
         1: [card('makk', 'K'), card('piros', 'A')],
-        2: [card('piros', 'K')]
+        2: [card('piros', 'K'), card('tok', '7')]
       },
       leader: 0,
       currentPlayer: 0,

@@ -32,7 +32,7 @@ const makeState = (overrides: Partial<EngineState>): EngineState => ({
   log: [],
   trickIndex: 0,
   belaAnnouncements: [],
-  lastTrick: undefined,
+  lastTrick: null,
   kontraLevel: 0,
   kontraTurn: undefined,
   lastScore: undefined,
@@ -48,7 +48,7 @@ describe('computeTrickPoints', () => {
         1: [],
         2: []
       },
-      lastTrick: { winner: 0, cards: [play(0, 'makk', 'A'), play(1, 'tok', '10'), play(2, 'zold', 'K')] },
+      lastTrick: { winner: 0, plays: [play(0, 'makk', 'A'), play(1, 'tok', '10'), play(2, 'zold', 'K')] },
       belaAnnouncements: [{ player: 0, suit: 'piros', value: 40 }]
     });
 
@@ -127,7 +127,7 @@ describe('scoreRoundMVP silent bonuses', () => {
       },
       lastTrick: {
         winner: 0,
-        cards: [play(0, 'piros', '7'), play(1, 'zold', '8'), play(2, 'tok', '9')]
+        plays: [play(0, 'piros', '7'), play(1, 'zold', '8'), play(2, 'tok', '9')]
       },
       highestBidId: 'passz',
       selectedBidId: 'passz',
@@ -138,8 +138,9 @@ describe('scoreRoundMVP silent bonuses', () => {
     });
 
     const result = scoreRoundMVP(state);
-    expect(result.notes.some((n) => n.includes('Silent 100'))).toBe(true);
-    expect(result.notes.some((n) => n.includes('Silent Ulti'))).toBe(true);
+    expect(result.silent.achieved.silent100).toBe(true);
+    expect(result.silent.achieved.silentUlti).toBe(true);
+    expect(result.silent.pointsBidder).toBeGreaterThan(0);
     expect(result.contractSuccess).toBe(true);
   });
 

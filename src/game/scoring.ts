@@ -14,7 +14,11 @@ export type ScoreBreakdown = {
   belaPointsDefenders: number;
   payouts: Record<PlayerId, number>;
   notes: string[];
-  silentBonuses?: { name: string; points: number }[];
+  silent: {
+    eligible: { silent100: number | null; silentUlti: number | null; silentDurchmarsch: number | null };
+    achieved: { silent100: boolean; silentUlti: boolean; silentDurchmarsch: boolean };
+    pointsBidder: number;
+  };
 };
 
 const zsírValue = (card: Card): number => (card.rank === 'A' || card.rank === '10' ? 10 : 0);
@@ -102,15 +106,17 @@ export const evaluateContractMVP = (state: EngineState): { success: boolean; not
   return { success: false, notes };
 };
 
-export const eligibleSilent = (
-  bidId?: string
+export const getSilentEligibility = (
+  bidId: string
 ): { silent100: number | null; silentUlti: number | null; silentDurchmarsch: number | null } => {
-  const bid = getBidById(bidId ?? '');
-  if (!bid) return { silent100: null, silentUlti: null, silentDurchmarsch: null };
+  const bid = getBidById(bidId);
+  if (!bid) {
+    return { silent100: null, silentUlti: null, silentDurchmarsch: null };
+  }
   return {
-    silent100: bid.silent.csendes100,
-    silentUlti: bid.silent.csendesUlti,
-    silentDurchmarsch: bid.silent.csendesDurchmarsch
+    silent100: bid.silent100Points ?? null,
+    silentUlti: bid.silentUltiPoints ?? null,
+    silentDurchmarsch: bid.silentDurchmarschPoints ?? null
   };
 };
 
@@ -122,33 +128,24 @@ export const scoreRoundMVP = (state: EngineState): ScoreBreakdown => {
 
   const trickPoints = computeTrickPoints(state);
   const contractResult = evaluateContractMVP(state);
-  const silent = eligibleSilent(bidId);
-  const silentBonuses: { name: string; points: number }[] = [];
-
-  let bonusTotal = 0;
-  if (silent.silent100 && state.gameType === 'TRUMP' && trickPoints.bidderTeam >= 100) {
-    bonusTotal += silent.silent100;
-    silentBonuses.push({ name: 'Silent 100', points: silent.silent100 });
-  }
+  const silentEligibility = getSilentEligibility(bidId);
+  const silentAchieved100 = state.gameType === 'TRUMP' && trickPoints.bidderTeam >= 100; // TODO: handle 80/90 + húsz edge cases
   const defenderTricks = defenders.reduce((sum, pid) => sum + Math.floor((state.tricksWon[pid]?.length ?? 0) / 3), 0);
-  if (silent.silentDurchmarsch && defenderTricks === 0) {
-    bonusTotal += silent.silentDurchmarsch;
-    silentBonuses.push({ name: 'Silent Durchmarsch', points: silent.silentDurchmarsch });
-  }
-  if (
-    silent.silentUlti &&
-    state.lastTrick &&
+  const silentAchievedDurchmarsch = defenderTricks === 0;
+  const silentAchievedUlti =
+    state.gameType === 'TRUMP' &&
+    state.lastTrick !== null &&
     state.lastTrick.winner === bidder &&
-    state.lastTrick.cards.some(
-      (p) => p.player === bidder && p.card.rank === '7' && p.card.suit === state.trumpSuit
-    )
-  ) {
-    bonusTotal += silent.silentUlti;
-    silentBonuses.push({ name: 'Silent Ulti', points: silent.silentUlti });
-  }
+    state.lastTrick.plays.some((p) => p.player === bidder && p.card.rank === '7' && p.card.suit === state.trumpSuit);
+
+  const silentPoints =
+    (silentEligibility.silent100 ?? 0) * (silentAchieved100 ? 1 : 0) +
+    (silentEligibility.silentDurchmarsch ?? 0) * (silentAchievedDurchmarsch ? 1 : 0) +
+    (silentEligibility.silentUlti ?? 0) * (silentAchievedUlti ? 1 : 0);
 
   const kontraMultiplier = 2 ** (state.kontraLevel ?? 0);
-  const pointValue = (bid.basePoints + bonusTotal) * kontraMultiplier;
+  const totalContractPoints = bid.basePoints + silentPoints;
+  const pointValue = totalContractPoints * kontraMultiplier;
   const defenderDelta = contractResult.success ? -pointValue : pointValue;
 
   const payouts: Record<PlayerId, number> = {
@@ -158,8 +155,14 @@ export const scoreRoundMVP = (state: EngineState): ScoreBreakdown => {
   };
 
   const notes = [...contractResult.notes];
-  if (silentBonuses.length) {
-    silentBonuses.forEach((bonus) => notes.push(`Achieved ${bonus.name} (+${bonus.points})`));
+  if (silentEligibility.silent100 !== null && silentAchieved100) {
+    notes.push(`Achieved Silent 100 (+${silentEligibility.silent100})`);
+  }
+  if (silentEligibility.silentDurchmarsch !== null && silentAchievedDurchmarsch) {
+    notes.push(`Achieved Silent Durchmarsch (+${silentEligibility.silentDurchmarsch})`);
+  }
+  if (silentEligibility.silentUlti !== null && silentAchievedUlti) {
+    notes.push(`Achieved Silent Ulti (+${silentEligibility.silentUlti})`);
   }
 
   return {
@@ -174,6 +177,14 @@ export const scoreRoundMVP = (state: EngineState): ScoreBreakdown => {
     belaPointsDefenders: trickPoints.belaDefenders,
     payouts,
     notes,
-    silentBonuses
+    silent: {
+      eligible: silentEligibility,
+      achieved: {
+        silent100: silentAchieved100,
+        silentUlti: silentAchievedUlti,
+        silentDurchmarsch: silentAchievedDurchmarsch
+      },
+      pointsBidder: silentPoints
+    }
   };
 };

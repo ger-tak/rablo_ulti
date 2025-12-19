@@ -224,7 +224,7 @@ export const bid = (state: EngineState, player: PlayerId, bidId: string): Engine
   return nextState;
 };
 
-const finalizeBid = (state: EngineState, bidId: string, bidder: PlayerId): EngineState => {
+const finalizeBid = (state: EngineState, bidId: string, contractBidder: PlayerId): EngineState => {
   const bid = getBidById(bidId);
   if (!bid) return state;
 
@@ -249,11 +249,11 @@ const finalizeBid = (state: EngineState, bidId: string, bidder: PlayerId): Engin
       bidAwaitingTalonDecision: false,
       bidNeedsDiscard: false,
       consecutivePasses: 0,
-      currentPlayer: bidder,
-      leader: bidder,
+      currentPlayer: contractBidder,
+      leader: contractBidder,
       phase: 'DECLARE_TRUMP',
       gameType,
-      log: [...state.log, `Bidding won by P${bidder} with ${bid.name}`]
+      log: [...state.log, `Bidding won by P${contractBidder} with ${bid.name}`]
     };
   }
 
@@ -264,13 +264,13 @@ const finalizeBid = (state: EngineState, bidId: string, bidder: PlayerId): Engin
     bidAwaitingTalonDecision: false,
     bidNeedsDiscard: false,
     consecutivePasses: 0,
-    currentPlayer: bidder,
-    leader: bidder,
+    currentPlayer: contractBidder,
+    leader: contractBidder,
     phase: 'PLAY',
     gameType,
     trumpSuit,
-    trick: { leader: bidder, plays: [] },
-    log: [...state.log, `Bidding won by P${bidder} with ${bid.name}`]
+    trick: { leader: contractBidder, plays: [] },
+    log: [...state.log, `Bidding won by P${contractBidder} with ${bid.name}`]
   });
 
   return prepared;

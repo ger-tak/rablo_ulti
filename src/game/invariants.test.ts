@@ -26,6 +26,13 @@ const makeState = (overrides: Partial<EngineState>): EngineState => ({
   bidAwaitingTalonDecision: false,
   requireRaiseAfterTake: false,
   log: [],
+  trickIndex: 0,
+  belaAnnouncements: [],
+  lastTrick: undefined,
+  kontraLevel: 0,
+  kontraTurn: undefined,
+  lastScore: undefined,
+  balances: { 0: 0, 1: 0, 2: 0 },
   ...overrides
 });
 

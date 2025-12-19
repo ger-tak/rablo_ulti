@@ -199,6 +199,35 @@
   }
 }
 
+.action-bar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.1);
+}
+
+.action-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.balances {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.balance-chip {
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 2px 6px;
+}
+
 .card-rank {
   font-weight: 700;
   font-size: 18px;

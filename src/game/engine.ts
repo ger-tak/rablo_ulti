@@ -1,5 +1,5 @@
 export type Suit = 'makk' | 'tok' | 'zold' | 'piros';
-export type Rank = 'A' | '10' | 'K' | 'F' | 'Aso' | '9' | '8' | '7';
+export type Rank = 'A' | '10' | 'K' | 'Felső' | 'Alsó' | '9' | '8' | '7';
 export type PlayerId = 0 | 1 | 2;
 
 export type GamePhase =
@@ -41,8 +41,10 @@ export interface GameState {
   deck: Card[];
 }
 
-const rankOrder: Rank[] = ['A', '10', 'K', 'F', 'Aso', '9', '8', '7'];
-const rankValue = Object.fromEntries(rankOrder.map((rank, index) => [rank, rankOrder.length - index]));
+const trumpRankOrder: Rank[] = ['A', '10', 'K', 'Felső', 'Alsó', '9', '8', '7'];
+const noTrumpRankOrder: Rank[] = ['A', 'K', 'Felső', 'Alsó', '10', '9', '8', '7'];
+const trumpRankValue = Object.fromEntries(trumpRankOrder.map((rank, index) => [rank, trumpRankOrder.length - index]));
+const noTrumpRankValue = Object.fromEntries(noTrumpRankOrder.map((rank, index) => [rank, noTrumpRankOrder.length - index]));
 
 const suits: Suit[] = ['makk', 'tok', 'zold', 'piros'];
 
@@ -51,7 +53,7 @@ const nextPlayer = (player: PlayerId): PlayerId => ((player + 1) % 3) as PlayerI
 const createDeck = (): Card[] => {
   const deck: Card[] = [];
   for (const suit of suits) {
-    for (const rank of rankOrder) {
+    for (const rank of trumpRankOrder) {
       deck.push({ suit, rank });
     }
   }
@@ -74,6 +76,42 @@ const shuffle = (cards: Card[], random: () => number): Card[] => {
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
   return deck;
+};
+
+const isTrumpGame = (trumpSuit?: Suit): trumpSuit is Suit => Boolean(trumpSuit);
+
+const getRankValue = (rank: Rank, trumpSuit?: Suit): number =>
+  isTrumpGame(trumpSuit) ? (trumpRankValue[rank] as number) : (noTrumpRankValue[rank] as number);
+
+const compareCardsForWinning = (a: Card, b: Card, leadSuit: Suit, trumpSuit?: Suit): number => {
+  const trumpMode = isTrumpGame(trumpSuit);
+  const aIsTrump = trumpMode && a.suit === trumpSuit;
+  const bIsTrump = trumpMode && b.suit === trumpSuit;
+
+  if (aIsTrump && !bIsTrump) return 1;
+  if (!aIsTrump && bIsTrump) return -1;
+
+  // No trumps, compare within lead suit importance.
+  const aIsLead = a.suit === leadSuit;
+  const bIsLead = b.suit === leadSuit;
+
+  if (aIsLead && !bIsLead) return 1;
+  if (!aIsLead && bIsLead) return -1;
+
+  // Same priority bucket (both trump, both lead, or neither): compare rank according to game type.
+  const aValue = getRankValue(a.rank, trumpSuit);
+  const bValue = getRankValue(b.rank, trumpSuit);
+  return Math.sign(aValue - bValue);
+};
+
+const findCurrentWinningPlay = (plays: TrickPlay[], leadSuit: Suit, trumpSuit?: Suit): TrickPlay => {
+  let winner = plays[0];
+  for (const play of plays.slice(1)) {
+    if (compareCardsForWinning(play.card, winner.card, leadSuit, trumpSuit) > 0) {
+      winner = play;
+    }
+  }
+  return winner;
 };
 
 const cloneState = (state: GameState): GameState => ({
@@ -171,12 +209,39 @@ export const legalMoves = (state: GameState, player: PlayerId): Card[] => {
   }
 
   const leadSuit = plays[0].card.suit;
-  const leadSuitCards = hand.filter((card) => card.suit === leadSuit);
-  if (leadSuitCards.length) return leadSuitCards;
+  const trumpSuit = state.trumpSuit;
+  const trumpMode = isTrumpGame(trumpSuit);
+  const currentWinningPlay = findCurrentWinningPlay(plays, leadSuit, trumpSuit);
 
-  if (state.trumpSuit) {
-    const trumpCards = hand.filter((card) => card.suit === state.trumpSuit);
-    if (trumpCards.length) return trumpCards;
+  const leadSuitCards = hand.filter((card) => card.suit === leadSuit);
+  if (leadSuitCards.length) {
+    const trumpInTrick = trumpMode && plays.some((p) => p.card.suit === trumpSuit);
+    if (trumpInTrick) return leadSuitCards;
+
+    const beatingCards = leadSuitCards.filter(
+      (card) => compareCardsForWinning(card, currentWinningPlay.card, leadSuit, trumpSuit) > 0
+    );
+    return beatingCards.length > 0 ? beatingCards : leadSuitCards;
+  }
+
+  if (trumpMode) {
+    const trumpCards = hand.filter((card) => card.suit === trumpSuit);
+    if (trumpCards.length) {
+      const trumpInTrick = plays.some((p) => p.card.suit === trumpSuit);
+      if (!trumpInTrick) {
+        return trumpCards;
+      }
+
+      const currentWinningTrump = findCurrentWinningPlay(
+        plays.filter((p) => p.card.suit === trumpSuit),
+        leadSuit,
+        trumpSuit
+      );
+      const beatingTrumps = trumpCards.filter(
+        (card) => compareCardsForWinning(card, currentWinningTrump.card, leadSuit, trumpSuit) > 0
+      );
+      return beatingTrumps.length > 0 ? beatingTrumps : trumpCards;
+    }
   }
 
   return [...hand];
@@ -189,21 +254,7 @@ export const trickWinner = (state: GameState): PlayerId => {
   }
 
   const leadSuit = plays[0].card.suit;
-  const trumpSuit = state.trumpSuit;
-  const targetSuit: Suit = (trumpSuit && plays.some((play) => play.card.suit === trumpSuit)) ? trumpSuit : leadSuit;
-
-  let winner = plays[0];
-  let bestValue = winner.card.suit === targetSuit ? (rankValue[winner.card.rank] as number) : -1;
-
-  for (const play of plays.slice(1)) {
-    if (play.card.suit !== targetSuit) continue;
-    const value = rankValue[play.card.rank] as number;
-    if (value > bestValue) {
-      winner = play;
-      bestValue = value;
-    }
-  }
-
+  const winner = findCurrentWinningPlay(plays, leadSuit, state.trumpSuit);
   return winner.player;
 };
 

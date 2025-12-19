@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { newGame, playCard } from './engine2';
+import { bid, discardToTalon, newGame, passBid, playCard } from './engine2';
 import type { EngineState } from './engine2';
 import type { Card } from './types';
 
@@ -84,5 +84,62 @@ describe('engine2 playCard', () => {
     expect(afterThird.currentPlayer).toBe(2);
     expect(afterThird.trick.plays).toHaveLength(0);
     expect(afterThird.phase).toBe('SCORING');
+  });
+});
+
+const twelveCardHand: Card[] = [
+  card('makk', 'A'),
+  card('makk', '10'),
+  card('makk', 'K'),
+  card('makk', 'Felső'),
+  card('tok', 'A'),
+  card('tok', '10'),
+  card('tok', 'K'),
+  card('tok', 'Felső'),
+  card('zold', 'A'),
+  card('zold', '10'),
+  card('piros', 'A'),
+  card('piros', '10')
+];
+
+describe('engine2 bidding discard requirement', () => {
+  it('blocks bidding and passing until talon discard is done', () => {
+    const state = makeState({
+      phase: 'BID',
+      leader: 1,
+      currentPlayer: 1,
+      bidNeedsDiscard: true,
+      hands: {
+        0: twelveCardHand.slice(0, 10),
+        1: twelveCardHand,
+        2: twelveCardHand.slice(2, 12)
+      },
+      talon: []
+    });
+
+    expect(() => bid(state, 1, 'negyvenszaz_40_100')).toThrow(/discard/);
+    expect(() => passBid(state, 1)).toThrow(/discard/);
+  });
+
+  it('discards exactly two cards into the talon', () => {
+    const state = makeState({
+      phase: 'BID',
+      leader: 1,
+      currentPlayer: 1,
+      bidNeedsDiscard: true,
+      hands: {
+        0: twelveCardHand.slice(0, 10),
+        1: twelveCardHand,
+        2: twelveCardHand.slice(2, 12)
+      },
+      talon: []
+    });
+
+    const cardsToDiscard = [state.hands[1][0], state.hands[1][1]];
+    const afterDiscard = discardToTalon(state, 1, cardsToDiscard);
+
+    expect(afterDiscard.hands[1]).toHaveLength(10);
+    expect(afterDiscard.talon).toEqual(cardsToDiscard);
+    expect(afterDiscard.bidNeedsDiscard).toBe(false);
   });
 });

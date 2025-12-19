@@ -121,7 +121,7 @@ export const deal = (state: EngineState, cut: boolean): EngineState => {
     highestBidder: undefined,
     consecutivePasses: 0,
     hasNonPassBid: false,
-    bidNeedsDiscard: false,
+    bidNeedsDiscard: true,
     bidAwaitingTalonDecision: false,
     requireRaiseAfterTake: false,
     log: [...state.log, 'Cards dealt (12/10/10, talon later via discard)']
@@ -142,10 +142,54 @@ const ensureBiddingTurn = (state: EngineState, player: PlayerId) => {
   if (player !== state.currentPlayer) throw new Error('Not this player’s bidding turn');
 };
 
+export const discardToTalon = (state: EngineState, player: PlayerId, cards: Card[]): EngineState => {
+  ensureBiddingTurn(state, player);
+  if (!state.bidNeedsDiscard) {
+    throw new Error('No discard required right now');
+  }
+
+  if (state.hands[player].length !== 12) {
+    throw new Error('Discarder must have 12 cards');
+  }
+
+  if (cards.length !== 2) {
+    throw new Error('Must discard exactly 2 cards');
+  }
+
+  const uniqueKeys = new Set(cards.map((c) => `${c.suit}-${c.rank}`));
+  if (uniqueKeys.size !== 2) {
+    throw new Error('Discarded cards must be distinct');
+  }
+
+  const updatedHand = [...state.hands[player]];
+  for (const card of cards) {
+    const index = updatedHand.findIndex((c) => c.suit === card.suit && c.rank === card.rank);
+    if (index === -1) {
+      throw new Error('Cannot discard card not in hand');
+    }
+    updatedHand.splice(index, 1);
+  }
+
+  const hands = { ...state.hands, [player]: updatedHand } as Record<PlayerId, Card[]>;
+  const nextState: EngineState = {
+    ...state,
+    hands,
+    talon: [...cards],
+    bidNeedsDiscard: false,
+    log: [...state.log, `P${player} discards to talon`]
+  };
+
+  assertEngineInvariants(nextState);
+  return nextState;
+};
+
 export const bid = (state: EngineState, player: PlayerId, bidId: string): EngineState => {
   ensureBiddingTurn(state, player);
   if (bidId === 'passz') {
     throw new Error('Use passBid for passing');
+  }
+  if (state.bidNeedsDiscard) {
+    throw new Error('Must discard 2 cards to talon before bidding');
   }
 
   const currentRank = bidRank(state.highestBidId);
@@ -209,6 +253,9 @@ const advanceAfterPasses = (state: EngineState): EngineState => {
 
 export const passBid = (state: EngineState, player: PlayerId): EngineState => {
   ensureBiddingTurn(state, player);
+  if (state.bidNeedsDiscard) {
+    throw new Error('Must discard 2 cards to talon before bidding');
+  }
 
   const nextState: EngineState = {
     ...state,

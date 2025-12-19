@@ -35,9 +35,15 @@ export const assertEngineInvariants = (state: EngineState): void => {
 
   if (state.phase === 'BID') {
     const twelveCardHands = handSizes.filter((size) => size === 12).length;
-    if (twelveCardHands !== 1) {
+    if (state.bidNeedsDiscard) {
+      if (twelveCardHands !== 1) {
+        throw new Error(
+          `BID invariant violated: expected exactly one 12-card hand (got ${formatHandSizes(handSizes)})`
+        );
+      }
+    } else if (twelveCardHands !== 0) {
       throw new Error(
-        `BID invariant violated: expected exactly one 12-card hand (got ${formatHandSizes(handSizes)})`
+        `BID invariant violated: expected discarder to have shed to 10 cards (got ${formatHandSizes(handSizes)})`
       );
     }
   }

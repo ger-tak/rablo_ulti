@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { engineLegalMoves, newGame, playCard, bid, passBid, declareTrump } from './game';
+import { engineLegalMoves, newGame, playCard, bid, passBid, declareTrump, discardToTalon } from './game';
 import type { Card, EngineState } from './game';
 import { GameLog } from './ui/components/GameLog';
 import { PlayerHand } from './ui/components/PlayerHand';
@@ -128,6 +128,16 @@ function App() {
     }
   };
 
+  const handleDiscardToTalon = (cards: Card[]) => {
+    try {
+      const next = discardToTalon(state, state.currentPlayer, cards);
+      setState(next);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Discard failed';
+      setMessageLog((prev) => [...prev, msg]);
+    }
+  };
+
   const overlay = (() => {
     if (state.phase === 'BID') {
       return (
@@ -135,8 +145,11 @@ function App() {
           <BiddingPanel
             currentPlayer={state.currentPlayer}
             highestBidId={state.highestBidId}
+            bidNeedsDiscard={state.bidNeedsDiscard}
+            hand={hands[state.currentPlayer]}
             onBid={handleBid}
             onPass={handlePass}
+            onDiscard={handleDiscardToTalon}
           />
         </div>
       );

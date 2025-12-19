@@ -15,8 +15,9 @@ export const PlayerHand = ({ playerName, cards, orientation = 'horizontal' }: Pl
           type="button"
           key={`${card.suit}-${card.rank}-${index}`}
           className="card"
-          disabled
-          aria-disabled="true"
+          onClick={() => {
+            // TODO: wire to engine actions
+          }}
         >
           <span className="card-rank">{card.rank}</span>
           <span className="card-suit">{card.suit}</span>

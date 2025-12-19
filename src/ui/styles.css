@@ -210,15 +210,6 @@
   letter-spacing: 0.5px;
 }
 
-.info-chip {
-  background: #111827;
-  color: #e2e8f0;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 12px;
-}
-
 .log-panel {
   background: #ffffff;
   border-radius: 12px;

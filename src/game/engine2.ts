@@ -1,6 +1,7 @@
 import { shuffle } from './deck';
 import { getBidById } from './bids';
 import { legalMoves as rulesLegalMoves, trickWinner as rulesTrickWinner } from './rules';
+import { assertEngineInvariants } from './invariants';
 import type { BidDefinition } from './bids';
 import type { Card, GameState, GameType, PlayerId, Suit, TrickState } from './types';
 
@@ -36,6 +37,26 @@ const toRulesState = (state: EngineState): GameState => ({
 
 const emptyTricksWon = (): Record<PlayerId, Card[]> => ({ 0: [], 1: [], 2: [] });
 
+const prepareForPlay = (state: EngineState): EngineState => {
+  const handSizes = [state.hands[0].length, state.hands[1].length, state.hands[2].length];
+  const maxSize = Math.max(...handSizes);
+  const minSize = Math.min(...handSizes);
+  if (maxSize === minSize) return state;
+
+  const playerWithExtra =
+    ([0, 1, 2] as PlayerId[]).find((player) => state.hands[player].length === maxSize) ?? state.dealer;
+  const discardCount = maxSize - minSize;
+  const discardPile = state.hands[playerWithExtra].slice(0, discardCount);
+  const talon = [...state.talon, ...discardPile];
+
+  const hands = {
+    ...state.hands,
+    [playerWithExtra]: state.hands[playerWithExtra].slice(discardCount)
+  } as Record<PlayerId, Card[]>;
+
+  return { ...state, hands, talon };
+};
+
 export const newGame = (seed?: number): EngineState => {
   const deck = shuffle(seed);
   const dealer: PlayerId = 0;
@@ -62,7 +83,9 @@ export const newGame = (seed?: number): EngineState => {
     log: ['New game created']
   };
 
-  return deal(baseState, false);
+  const nextState = deal(baseState, false);
+  assertEngineInvariants(nextState);
+  return nextState;
 };
 
 export const deal = (state: EngineState, cut: boolean): EngineState => {
@@ -84,7 +107,7 @@ export const deal = (state: EngineState, cut: boolean): EngineState => {
 
   const bidder = first;
 
-  return {
+  const nextState: EngineState = {
     ...state,
     phase: 'BID',
     hands,
@@ -103,6 +126,9 @@ export const deal = (state: EngineState, cut: boolean): EngineState => {
     requireRaiseAfterTake: false,
     log: [...state.log, 'Cards dealt (12/10/10, talon later via discard)']
   };
+
+  assertEngineInvariants(nextState);
+  return nextState;
 };
 
 const bidRank = (bidId?: string): number => {
@@ -131,7 +157,7 @@ export const bid = (state: EngineState, player: PlayerId, bidId: string): Engine
 
   const nextPlayerTurn = nextPlayer(player);
 
-  return {
+  const nextState = {
     ...state,
     highestBidId: bidId,
     highestBidder: player,
@@ -140,6 +166,9 @@ export const bid = (state: EngineState, player: PlayerId, bidId: string): Engine
     currentPlayer: nextPlayerTurn,
     log: [...state.log, `P${player} bids ${nextBid.name}`]
   };
+
+  assertEngineInvariants(nextState);
+  return nextState;
 };
 
 const advanceAfterPasses = (state: EngineState): EngineState => {
@@ -163,7 +192,7 @@ const advanceAfterPasses = (state: EngineState): EngineState => {
     };
   }
 
-  return {
+  const prepared = prepareForPlay({
     ...state,
     selectedBidId: state.highestBidId,
     currentPlayer: state.highestBidder,
@@ -173,7 +202,9 @@ const advanceAfterPasses = (state: EngineState): EngineState => {
     trumpSuit,
     trick: { leader: state.highestBidder, plays: [] },
     log: [...state.log, `Bidding won by P${state.highestBidder} with ${bid.name}`]
-  };
+  });
+
+  return prepared;
 };
 
 export const passBid = (state: EngineState, player: PlayerId): EngineState => {
@@ -187,24 +218,30 @@ export const passBid = (state: EngineState, player: PlayerId): EngineState => {
   };
 
   if (!nextState.highestBidId || nextState.consecutivePasses < 2) {
+    assertEngineInvariants(nextState);
     return nextState;
   }
 
-  return advanceAfterPasses(nextState);
+  const advancedState = advanceAfterPasses(nextState);
+  assertEngineInvariants(advancedState);
+  return advancedState;
 };
 
 export const declareTrump = (state: EngineState, player: PlayerId, suit: Suit): EngineState => {
   if (state.phase !== 'DECLARE_TRUMP') throw new Error('Not declaring trump right now');
   if (player !== state.currentPlayer) throw new Error('Not this player’s turn');
 
-  return {
+  const preparedState = prepareForPlay({
     ...state,
     trumpSuit: suit,
     gameType: 'TRUMP',
     phase: 'PLAY',
     trick: { leader: state.leader, plays: [] },
     log: [...state.log, `Trump declared as ${suit}`]
-  };
+  });
+
+  assertEngineInvariants(preparedState);
+  return preparedState;
 };
 const deriveGameType = (
   bid: BidDefinition,
@@ -229,7 +266,7 @@ export const startPlay = (state: EngineState, bidId: string, trumpSuit?: Suit): 
   const leader = state.currentPlayer;
   const trick: TrickState = { leader, plays: [] };
 
-  return {
+  const nextState = prepareForPlay({
     ...state,
     selectedBidId: bidId,
     gameType,
@@ -239,7 +276,10 @@ export const startPlay = (state: EngineState, bidId: string, trumpSuit?: Suit): 
     currentPlayer: leader,
     trick,
     log: [...state.log, `Play started with bid ${bid.name}`]
-  };
+  });
+
+  assertEngineInvariants(nextState);
+  return nextState;
 };
 
 export const engineLegalMoves = (state: EngineState, player: PlayerId): Card[] =>
@@ -275,12 +315,14 @@ export const playCard = (state: EngineState, player: PlayerId, card: Card): Engi
   const updatedTrick: TrickState = { leader: state.trick.leader, plays: updatedPlays };
 
   if (updatedPlays.length < 3) {
-    return {
+    const nextState = {
       ...state,
       hands: updatedHands,
       trick: updatedTrick,
       currentPlayer: nextPlayer(player)
     };
+    assertEngineInvariants(nextState);
+    return nextState;
   }
 
   const winner = rulesTrickWinner(toRulesState({ ...state, hands: updatedHands, trick: updatedTrick }));
@@ -294,7 +336,7 @@ export const playCard = (state: EngineState, player: PlayerId, card: Card): Engi
   const remainingCards =
     updatedHands[0].length + updatedHands[1].length + updatedHands[2].length;
 
-  return {
+  const nextState = {
     ...state,
     hands: updatedHands,
     trick: { leader: winner, plays: [] },
@@ -304,4 +346,7 @@ export const playCard = (state: EngineState, player: PlayerId, card: Card): Engi
     phase: remainingCards === 0 ? 'SCORING' : state.phase,
     log: [...state.log, `Trick won by Player ${winner}`]
   };
+
+  assertEngineInvariants(nextState);
+  return nextState;
 };

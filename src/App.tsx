@@ -98,37 +98,45 @@ function App() {
   const trick = state.trick;
   const log = [...state.log, ...messageLog];
 
-  const biddingPanel =
-    state.phase === 'BID' ? (
-      <BiddingPanel
-        currentPlayer={state.currentPlayer}
-        highestBidId={state.highestBidId}
-        onBid={handleBid}
-        onPass={handlePass}
-      />
-    ) : null;
-
-  const suitPicker =
-    state.phase === 'DECLARE_TRUMP' ? (
-      <div className="panel">
-        <div className="panel-header">
-          <div className="panel-title">Declare Trump</div>
-          <div className="panel-subtitle">Player {state.currentPlayer}</div>
+  const overlay = (() => {
+    if (state.phase === 'BID') {
+      return (
+        <div className="overlay">
+          <BiddingPanel
+            currentPlayer={state.currentPlayer}
+            highestBidId={state.highestBidId}
+            onBid={handleBid}
+            onPass={handlePass}
+          />
         </div>
-        <div className="panel-body pill-row">
-          {(['makk', 'tok', 'zold', 'piros'] as Card['suit'][]).map((suit) => (
-            <button
-              key={suit}
-              type="button"
-              className="secondary"
-              onClick={() => handleDeclareTrump(suit)}
-            >
-              {suit}
-            </button>
-          ))}
+      );
+    }
+    if (state.phase === 'DECLARE_TRUMP') {
+      return (
+        <div className="overlay">
+          <div className="panel">
+            <div className="panel-header">
+              <div className="panel-title">Declare Trump</div>
+              <div className="panel-subtitle">Player {state.currentPlayer}</div>
+            </div>
+            <div className="panel-body pill-row">
+              {(['makk', 'tok', 'zold', 'piros'] as Card['suit'][]).map((suit) => (
+                <button
+                  key={suit}
+                  type="button"
+                  className="secondary"
+                  onClick={() => handleDeclareTrump(suit)}
+                >
+                  {suit}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
-    ) : null;
+      );
+    }
+    return null;
+  })();
 
   const handleBid = (bidId: string) => {
     try {
@@ -170,9 +178,6 @@ function App() {
         onSeedChange={setSeed}
         onNewGame={handleNewGame}
       />
-
-      {biddingPanel}
-      {suitPicker}
 
       <div className="layout">
         <TableLayout

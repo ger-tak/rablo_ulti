@@ -78,6 +78,17 @@
   justify-content: center;
 }
 
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.35);
+  z-index: 20;
+  padding: 16px;
+}
+
 .seat-left {
   grid-column: 1;
   grid-row: 1 / span 1;

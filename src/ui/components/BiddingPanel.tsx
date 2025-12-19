@@ -8,16 +8,17 @@ interface BiddingPanelProps {
 }
 
 export const BiddingPanel = ({ currentPlayer, highestBidId, onBid, onPass }: BiddingPanelProps) => {
-  const highestRank = highestBidId ? (BIDS.find((b) => b.id === highestBidId)?.rank ?? -1) : -1;
-  const highestName = highestBidId ? (BIDS.find((b) => b.id === highestBidId)?.name ?? '') : '';
-  const nextBids = BIDS.filter((b) => b.rank > highestRank && b.id !== 'passz');
+  const highestBid = highestBidId ? BIDS.find((b) => b.id === highestBidId) : undefined;
+  const highestRank = highestBid ? highestBid.rank : -1;
+  const highestName = highestBid ? highestBid.name : 'None yet';
+  const nextBids = BIDS.filter((b) => b.id !== 'passz' && b.rank > highestRank);
 
   return (
     <div className="panel">
       <div className="panel-header">
-        <div className="panel-title">Bidding - Player {currentPlayer}</div>
+        <div className="panel-title">Bidding</div>
         <div className="panel-subtitle">
-          Current highest: {highestName || 'None yet'}
+          Current player: P{currentPlayer} • Highest bid: {highestName}
         </div>
       </div>
       <div className="panel-body">

@@ -170,7 +170,7 @@ export const passBid = (state: EngineState, player: PlayerId): EngineState => {
 
   const nextState: EngineState = {
     ...state,
-    consecutivePasses: state.consecutivePasses + 1,
+    consecutivePasses: (state.consecutivePasses ?? 0) + 1,
     currentPlayer: nextPlayer(player),
     log: [...state.log, `P${player} passes`]
   };

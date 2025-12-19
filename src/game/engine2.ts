@@ -119,7 +119,7 @@ export const startPlay = (state: EngineState, bidId: string, trumpSuit?: Suit): 
   };
 };
 
-export const legalMoves = (state: EngineState, player: PlayerId): Card[] =>
+export const enginelegalMoves = (state: EngineState, player: PlayerId): Card[] =>
   rulesLegalMoves(toRulesState(state), player);
 
 export const playCard = (state: EngineState, player: PlayerId, card: Card): EngineState => {
@@ -133,7 +133,7 @@ export const playCard = (state: EngineState, player: PlayerId, card: Card): Engi
     throw new Error('Card not in hand');
   }
 
-  const legal = legalMoves(state, player);
+  const legal = enginelegalMoves(state, player);
   const isLegal = legal.some((c) => c.suit === card.suit && c.rank === card.rank);
   if (!isLegal) {
     throw new Error('Illegal card for this trick');

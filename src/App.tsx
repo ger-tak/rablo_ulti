@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { legalMoves, newGame, playCard } from './game';
+import { enginelegalMoves, newGame, playCard } from './game';
 import type { Card, EngineState } from './game';
 import { GameLog } from './ui/components/GameLog';
 import { PlayerHand } from './ui/components/PlayerHand';
@@ -25,7 +25,7 @@ function App() {
   };
 
   const legal = useMemo(
-    () => legalMoves(state, state.currentPlayer),
+    () => enginelegalMoves(state, state.currentPlayer),
     [state]
   );
 

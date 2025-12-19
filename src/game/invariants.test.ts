@@ -28,7 +28,7 @@ const makeState = (overrides: Partial<EngineState>): EngineState => ({
   log: [],
   trickIndex: 0,
   belaAnnouncements: [],
-  lastTrick: undefined,
+  lastTrick: null,
   kontraLevel: 0,
   kontraTurn: undefined,
   lastScore: undefined,

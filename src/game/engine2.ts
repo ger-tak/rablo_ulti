@@ -32,7 +32,7 @@ export interface EngineState extends GameState {
   log: string[];
   trickIndex: number;
   belaAnnouncements: Array<{ player: PlayerId; suit: Suit; value: 20 | 40 }>;
-  lastTrick?: { winner: PlayerId; cards: TrickPlay[] } | undefined;
+  lastTrick: { winner: PlayerId; plays: TrickPlay[] } | null;
   kontraLevel: number;
   kontraTurn?: 'DEFENDERS' | 'BIDDER';
   lastScore?: ScoreBreakdown | undefined;
@@ -99,7 +99,7 @@ export const newGame = (seed?: number): EngineState => {
     log: ['New game created'],
     trickIndex: 0,
     belaAnnouncements: [],
-    lastTrick: undefined,
+    lastTrick: null,
     kontraLevel: 0,
     kontraTurn: undefined,
     lastScore: undefined,
@@ -214,7 +214,7 @@ export const nextRound = (state: EngineState): EngineState => {
     log: [...state.log, 'Next round started'],
     trickIndex: 0,
     belaAnnouncements: [],
-    lastTrick: undefined,
+    lastTrick: null,
     kontraLevel: 0,
     kontraTurn: undefined,
     lastScore: undefined,
@@ -265,7 +265,7 @@ export const deal = (state: EngineState, cut: boolean): EngineState => {
     log: [...state.log, 'Cards dealt (12/10/10, talon later via discard)'],
     trickIndex: 0,
     belaAnnouncements: [],
-    lastTrick: undefined,
+    lastTrick: null,
     kontraLevel: 0,
     kontraTurn: undefined,
     lastScore: undefined
@@ -401,7 +401,7 @@ const finalizeBid = (state: EngineState, bidId: string, contractBidder: PlayerId
       belaAnnouncements: [],
       kontraLevel: 0,
       kontraTurn: undefined,
-      lastTrick: undefined,
+      lastTrick: null,
       lastScore: undefined,
       log: [...state.log, `Bidding won by P${contractBidder} with ${bid.name}`]
     };
@@ -424,7 +424,7 @@ const finalizeBid = (state: EngineState, bidId: string, contractBidder: PlayerId
     belaAnnouncements: [],
     kontraLevel: 0,
     kontraTurn: undefined,
-    lastTrick: undefined,
+    lastTrick: null,
     lastScore: undefined,
     log: [...state.log, `Bidding won by P${contractBidder} with ${bid.name}`]
   });
@@ -553,7 +553,7 @@ export const startPlay = (state: EngineState, bidId: string, trumpSuit?: Suit): 
     belaAnnouncements: [],
     kontraLevel: 0,
     kontraTurn: undefined,
-    lastTrick: undefined,
+    lastTrick: null,
     lastScore: undefined,
     log: [...state.log, `Play started with bid ${bid.name}`]
   });
@@ -627,7 +627,7 @@ export const playCard = (state: EngineState, player: PlayerId, card: Card): Engi
     currentPlayer: winner,
     tricksWon: updatedTricksWon,
     trickIndex: nextTrickIndex,
-    lastTrick: { winner, cards: updatedPlays },
+    lastTrick: { winner, plays: updatedPlays },
     log: [...state.log, `Trick won by Player ${winner}`]
   };
 

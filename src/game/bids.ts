@@ -21,6 +21,9 @@ export type BidDefinition = {
   trump: TrumpChoice;
   tags: Array<'PIROS_PREFIX' | 'TERITETT' | 'ULTI' | 'DURCHMARSCH' | 'BETLI' | '40_100' | '20_100'>;
   silent: SilentBonuses;
+  silent100Points?: number;
+  silentUltiPoints?: number;
+  silentDurchmarschPoints?: number;
 };
 
 export const BIDS: BidDefinition[] = [
@@ -32,7 +35,10 @@ export const BIDS: BidDefinition[] = [
     gameType: 'TRUMP',
     trump: { kind: 'bidder' },
     tags: [],
-    silent: { csendes100: 2, csendesUlti: 2, csendesDurchmarsch: 3, hasBangBangBangBang: true }
+    silent: { csendes100: 2, csendesUlti: 2, csendesDurchmarsch: 3, hasBangBangBangBang: true },
+    silent100Points: 2,
+    silentUltiPoints: 3,
+    silentDurchmarschPoints: 3
   },
   {
     id: 'piros_passz',

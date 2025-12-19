@@ -1,5 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { engineLegalMoves, newGame, playCard, bid, passBid, declareTrump, discardToTalon, takeTalon, declineTalon } from './game';
+import {
+  engineLegalMoves,
+  newGame,
+  playCard,
+  bid,
+  passBid,
+  declareTrump,
+  discardToTalon,
+  takeTalon,
+  declineTalon,
+  announceBela,
+  callKontra,
+  nextRound
+} from './game';
 import type { Card, EngineState } from './game';
 import { GameLog } from './ui/components/GameLog';
 import { PlayerHand } from './ui/components/PlayerHand';
@@ -8,6 +21,7 @@ import { Toolbar } from './ui/components/Toolbar';
 import { TrickArea } from './ui/components/TrickArea';
 import { DebugPanel } from './ui/components/DebugPanel';
 import { BiddingPanel } from './ui/components/BiddingPanel';
+import { RoundSummary } from './ui/components/RoundSummary';
 import './App.css';
 import './ui/styles.css';
 
@@ -158,7 +172,45 @@ function App() {
     }
   };
 
+  const handleAnnounceBela = (suit: Card['suit']) => {
+    try {
+      const next = announceBela(state, state.currentPlayer, suit);
+      setState(next);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Béla announcement failed';
+      setMessageLog((prev) => [...prev, msg]);
+    }
+  };
+
+  const handleCallKontra = () => {
+    try {
+      const next = callKontra(state, state.currentPlayer);
+      setState(next);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Kontra failed';
+      setMessageLog((prev) => [...prev, msg]);
+    }
+  };
+
+  const handleNextRound = () => {
+    try {
+      const next = nextRound(state);
+      setState(next);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Next round failed';
+      setMessageLog((prev) => [...prev, msg]);
+    }
+  };
+
   const overlay = (() => {
+    if (state.phase === 'ROUND_END' && state.lastScore) {
+      return (
+        <RoundSummary
+          score={state.lastScore}
+          onNextRound={handleNextRound}
+        />
+      );
+    }
     if (state.phase === 'BID') {
       return (
         <div className="overlay">
@@ -206,6 +258,30 @@ function App() {
     return null;
   })();
 
+  const eligibleBelaSuits = useMemo(() => {
+    if (
+      state.phase !== 'PLAY' ||
+      state.trickIndex !== 0 ||
+      state.currentPlayer === undefined ||
+      state.gameType !== 'TRUMP'
+    ) {
+      return [];
+    }
+
+    const hand = state.hands[state.currentPlayer] ?? [];
+    const announced = state.belaAnnouncements.filter((ann) => ann.player === state.currentPlayer);
+    const suits: Card['suit'][] = ['makk', 'tok', 'zold', 'piros'];
+    return suits.filter((suit) => {
+      const hasKing = hand.some((c) => c.suit === suit && c.rank === 'K');
+      const hasQueen = hand.some((c) => c.suit === suit && c.rank === 'Felső');
+      const already = announced.some((ann) => ann.suit === suit);
+      return hasKing && hasQueen && !already;
+    });
+  }, [state]);
+
+  const canCallKontra =
+    state.phase === 'PLAY' && state.trickIndex === 0 && state.trick.plays.length === 0;
+
   return (
     <div className="page">
       <Toolbar
@@ -213,6 +289,7 @@ function App() {
         seed={seed}
         leader={state.leader}
         currentPlayer={state.currentPlayer}
+        balances={state.balances}
         onSeedChange={setSeed}
         onNewGame={handleNewGame}
       />
@@ -267,6 +344,34 @@ function App() {
           <DebugPanel state={state} legalMoves={legal} />
         </div>
       </div>
+
+      {state.phase === 'PLAY' && (
+        <div className="action-bar">
+          {eligibleBelaSuits.length > 0 && (
+            <div className="action-group">
+              <span>Announce Béla:</span>
+              {eligibleBelaSuits.map((suit) => (
+                <button
+                  key={suit}
+                  type="button"
+                  className="secondary"
+                  onClick={() => handleAnnounceBela(suit)}
+                >
+                  {suit}
+                </button>
+              ))}
+            </div>
+          )}
+          {canCallKontra && (
+            <div className="action-group">
+              <span>Kontra:</span>
+              <button type="button" className="secondary" onClick={handleCallKontra}>
+                Call
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {overlay}
     </div>

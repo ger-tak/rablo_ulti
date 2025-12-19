@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { bid, declineTalon, discardToTalon, newGame, passBid, playCard, takeTalon } from './engine2';
+import {
+  bid,
+  callKontra,
+  declineTalon,
+  discardToTalon,
+  newGame,
+  nextRound,
+  passBid,
+  playCard,
+  takeTalon
+} from './engine2';
 import type { EngineState } from './engine2';
 import type { Card } from './types';
 
@@ -26,6 +36,13 @@ const makeState = (overrides: Partial<EngineState>): EngineState => ({
   bidAwaitingTalonDecision: false,
   requireRaiseAfterTake: false,
   log: [],
+  trickIndex: 0,
+  belaAnnouncements: [],
+  lastTrick: undefined,
+  kontraLevel: 0,
+  kontraTurn: undefined,
+  lastScore: undefined,
+  balances: { 0: 0, 1: 0, 2: 0 },
   ...overrides
 });
 
@@ -83,7 +100,7 @@ describe('engine2 playCard', () => {
     expect(afterThird.leader).toBe(2);
     expect(afterThird.currentPlayer).toBe(2);
     expect(afterThird.trick.plays).toHaveLength(0);
-    expect(afterThird.phase).toBe('SCORING');
+    expect(afterThird.phase).toBe('ROUND_END');
   });
 });
 
@@ -248,6 +265,75 @@ describe('engine2 talon decision after passes', () => {
     expect(next.gameType).toBe('NO_TRUMP');
     expect(next.trumpSuit).toBeUndefined();
     expect(next.leader).toBe(0);
+  });
+});
+
+describe('kontra ordering', () => {
+  it('allows defenders then bidder to escalate', () => {
+    const state = makeState({
+      phase: 'PLAY',
+      trickIndex: 0,
+      trick: { leader: 0, plays: [] },
+      highestBidder: 0,
+      hands: {
+        0: Array(10).fill(card('makk', '7')),
+        1: Array(10).fill(card('makk', '8')),
+        2: Array(10).fill(card('makk', '9'))
+      }
+    });
+
+    const afterKontra = callKontra(state, 1);
+    expect(afterKontra.kontraLevel).toBe(1);
+    const afterRekontra = callKontra(afterKontra, 0);
+    expect(afterRekontra.kontraLevel).toBe(2);
+    expect(() => callKontra(state, 0)).toThrow();
+  });
+});
+
+describe('round end and balances', () => {
+  it('sets ROUND_END and updates balances', () => {
+    const state = makeState({
+      phase: 'PLAY',
+      gameType: 'NO_TRUMP',
+      trumpSuit: undefined,
+      highestBidId: 'betli',
+      selectedBidId: 'betli',
+      highestBidder: 0,
+      leader: 0,
+      currentPlayer: 0,
+      trickIndex: 9,
+      hands: {
+        0: [card('makk', '7')],
+        1: [card('makk', 'A')],
+        2: [card('makk', 'K')]
+      },
+      tricksWon: { 0: [], 1: Array(15).fill(card('tok', '8')), 2: Array(12).fill(card('zold', '9')) },
+      trick: { leader: 0, plays: [] }
+    });
+
+    const afterFirst = playCard(state, 0, card('makk', '7'));
+    const afterSecond = playCard(afterFirst, 1, card('makk', 'A'));
+    const afterThird = playCard(afterSecond, 2, card('makk', 'K'));
+
+    expect(afterThird.phase).toBe('ROUND_END');
+    expect(afterThird.lastScore?.payouts[0]).toBe(10);
+    expect(afterThird.balances[0]).toBe(10);
+    expect(afterThird.balances[1]).toBe(-5);
+    expect(afterThird.balances[2]).toBe(-5);
+  });
+
+  it('nextRound rotates dealer and keeps balances', () => {
+    const state = makeState({
+      phase: 'ROUND_END',
+      dealer: 1,
+      balances: { 0: 10, 1: -5, 2: -5 },
+      log: []
+    });
+
+    const next = nextRound(state);
+    expect(next.dealer).toBe(2);
+    expect(next.balances[0]).toBe(10);
+    expect(next.phase).toBe('BID');
   });
 });
 

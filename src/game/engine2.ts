@@ -2,10 +2,19 @@ import { shuffle } from './deck';
 import { getBidById } from './bids';
 import { legalMoves as rulesLegalMoves, trickWinner as rulesTrickWinner } from './rules';
 import { assertEngineInvariants } from './invariants';
+import { scoreRoundMVP } from './scoring';
 import type { BidDefinition } from './bids';
-import type { Card, GameState, GameType, PlayerId, Suit, TrickState } from './types';
+import type { ScoreBreakdown } from './scoring';
+import type { Card, GameState, GameType, PlayerId, Suit, TrickPlay, TrickState } from './types';
 
-export type GamePhase = 'DEAL' | 'BID' | 'DECLARE_TRUMP' | 'PLAY' | 'SCORING' | 'PAYMENT';
+export type GamePhase =
+  | 'DEAL'
+  | 'BID'
+  | 'DECLARE_TRUMP'
+  | 'PLAY'
+  | 'SCORING'
+  | 'PAYMENT'
+  | 'ROUND_END';
 
 export interface EngineState extends GameState {
   phase: GamePhase;
@@ -21,6 +30,13 @@ export interface EngineState extends GameState {
   bidAwaitingTalonDecision: boolean;
   requireRaiseAfterTake: boolean;
   log: string[];
+  trickIndex: number;
+  belaAnnouncements: Array<{ player: PlayerId; suit: Suit; value: 20 | 40 }>;
+  lastTrick?: { winner: PlayerId; cards: TrickPlay[] } | undefined;
+  kontraLevel: number;
+  kontraTurn?: 'DEFENDERS' | 'BIDDER';
+  lastScore?: ScoreBreakdown | undefined;
+  balances: Record<PlayerId, number>;
 }
 
 export const nextPlayer = (player: PlayerId): PlayerId => ((player + 1) % 3) as PlayerId;
@@ -80,7 +96,129 @@ export const newGame = (seed?: number): EngineState => {
     bidNeedsDiscard: false,
     bidAwaitingTalonDecision: false,
     requireRaiseAfterTake: false,
-    log: ['New game created']
+    log: ['New game created'],
+    trickIndex: 0,
+    belaAnnouncements: [],
+    lastTrick: undefined,
+    kontraLevel: 0,
+    kontraTurn: undefined,
+    lastScore: undefined,
+    balances: { 0: 0, 1: 0, 2: 0 }
+  };
+
+  const nextState = deal(baseState, false);
+  assertEngineInvariants(nextState);
+  return nextState;
+};
+
+const assertPlayFirstTrick = (state: EngineState) => {
+  if (state.phase !== 'PLAY') throw new Error('Not in PLAY phase');
+  if (state.trickIndex !== 0) throw new Error('Only allowed before first trick completes');
+};
+
+const playerHasCard = (state: EngineState, player: PlayerId, suit: Suit, rank: Card['rank']): boolean =>
+  !!state.hands[player].find((c) => c.suit === suit && c.rank === rank);
+
+export const announceBela = (state: EngineState, player: PlayerId, suit: Suit): EngineState => {
+  assertPlayFirstTrick(state);
+  if (state.gameType !== 'TRUMP') throw new Error('Béla only in TRUMP games');
+  if (player !== state.currentPlayer) throw new Error('Only current player may announce Béla');
+  if (!playerHasCard(state, player, suit, 'K') || !playerHasCard(state, player, suit, 'Felső')) {
+    throw new Error('Player does not have Béla in hand');
+  }
+
+  const already = state.belaAnnouncements.some((ann) => ann.player === player && ann.suit === suit);
+  if (already) return state;
+
+  const value = suit === state.trumpSuit ? 40 : 20;
+  const next: EngineState = {
+    ...state,
+    belaAnnouncements: [...state.belaAnnouncements, { player, suit, value }],
+    log: [...state.log, `P${player} announces Béla (${suit}) for ${value}`]
+  };
+  assertEngineInvariants(next);
+  return next;
+};
+
+export const callKontra = (state: EngineState, player: PlayerId): EngineState => {
+  assertPlayFirstTrick(state);
+  if (state.trick.plays.length > 0) throw new Error('Kontra only before first card is played');
+  const bidder = state.highestBidder;
+  if (bidder === undefined) throw new Error('No bidder to kontra');
+
+  if (state.kontraLevel >= 3) throw new Error('Maximum kontra level reached');
+
+  if (state.kontraLevel === 0) {
+    if (player === bidder) throw new Error('Defenders call kontra first');
+    const next: EngineState = {
+      ...state,
+      kontraLevel: 1,
+      kontraTurn: 'BIDDER',
+      log: [...state.log, `P${player} calls kontra`]
+    };
+    assertEngineInvariants(next);
+    return next;
+  }
+
+  if (state.kontraTurn === 'BIDDER') {
+    if (player !== bidder) throw new Error('Bidder may rekontra now');
+    const next: EngineState = {
+      ...state,
+      kontraLevel: state.kontraLevel + 1,
+      kontraTurn: 'DEFENDERS',
+      log: [...state.log, `P${player} calls rekontra`]
+    };
+    assertEngineInvariants(next);
+    return next;
+  }
+
+  if (state.kontraTurn === 'DEFENDERS') {
+    if (player === bidder) throw new Error('Defenders may call next kontra');
+    const next: EngineState = {
+      ...state,
+      kontraLevel: state.kontraLevel + 1,
+      kontraTurn: 'BIDDER',
+      log: [...state.log, `P${player} calls kontra (level ${state.kontraLevel + 1})`]
+    };
+    assertEngineInvariants(next);
+    return next;
+  }
+
+  throw new Error('Invalid kontra state');
+};
+
+export const nextRound = (state: EngineState): EngineState => {
+  if (state.phase !== 'ROUND_END') throw new Error('Round not finished');
+  const dealer = nextPlayer(state.dealer);
+  const deck = shuffle();
+  const baseState: EngineState = {
+    phase: 'DEAL',
+    dealer,
+    leader: nextPlayer(dealer),
+    currentPlayer: nextPlayer(dealer),
+    gameType: 'TRUMP',
+    trumpSuit: undefined,
+    hands: { 0: [], 1: [], 2: [] },
+    talon: [],
+    trick: { leader: nextPlayer(dealer), plays: [] },
+    tricksWon: emptyTricksWon(),
+    deck,
+    selectedBidId: undefined,
+    highestBidId: undefined,
+    highestBidder: undefined,
+    consecutivePasses: 0,
+    hasNonPassBid: false,
+    bidNeedsDiscard: false,
+    bidAwaitingTalonDecision: false,
+    requireRaiseAfterTake: false,
+    log: [...state.log, 'Next round started'],
+    trickIndex: 0,
+    belaAnnouncements: [],
+    lastTrick: undefined,
+    kontraLevel: 0,
+    kontraTurn: undefined,
+    lastScore: undefined,
+    balances: state.balances
   };
 
   const nextState = deal(baseState, false);
@@ -124,7 +262,13 @@ export const deal = (state: EngineState, cut: boolean): EngineState => {
     bidNeedsDiscard: true,
     bidAwaitingTalonDecision: false,
     requireRaiseAfterTake: false,
-    log: [...state.log, 'Cards dealt (12/10/10, talon later via discard)']
+    log: [...state.log, 'Cards dealt (12/10/10, talon later via discard)'],
+    trickIndex: 0,
+    belaAnnouncements: [],
+    lastTrick: undefined,
+    kontraLevel: 0,
+    kontraTurn: undefined,
+    lastScore: undefined
   };
 
   assertEngineInvariants(nextState);
@@ -253,6 +397,12 @@ const finalizeBid = (state: EngineState, bidId: string, contractBidder: PlayerId
       leader: contractBidder,
       phase: 'DECLARE_TRUMP',
       gameType,
+      trickIndex: 0,
+      belaAnnouncements: [],
+      kontraLevel: 0,
+      kontraTurn: undefined,
+      lastTrick: undefined,
+      lastScore: undefined,
       log: [...state.log, `Bidding won by P${contractBidder} with ${bid.name}`]
     };
   }
@@ -270,6 +420,12 @@ const finalizeBid = (state: EngineState, bidId: string, contractBidder: PlayerId
     gameType,
     trumpSuit,
     trick: { leader: contractBidder, plays: [] },
+    trickIndex: 0,
+    belaAnnouncements: [],
+    kontraLevel: 0,
+    kontraTurn: undefined,
+    lastTrick: undefined,
+    lastScore: undefined,
     log: [...state.log, `Bidding won by P${contractBidder} with ${bid.name}`]
   });
 
@@ -393,6 +549,12 @@ export const startPlay = (state: EngineState, bidId: string, trumpSuit?: Suit): 
     leader,
     currentPlayer: leader,
     trick,
+    trickIndex: 0,
+    belaAnnouncements: [],
+    kontraLevel: 0,
+    kontraTurn: undefined,
+    lastTrick: undefined,
+    lastScore: undefined,
     log: [...state.log, `Play started with bid ${bid.name}`]
   });
 
@@ -454,15 +616,39 @@ export const playCard = (state: EngineState, player: PlayerId, card: Card): Engi
   const remainingCards =
     updatedHands[0].length + updatedHands[1].length + updatedHands[2].length;
 
-  const nextState = {
+  const baseNextState: EngineState = {
     ...state,
     hands: updatedHands,
     trick: { leader: winner, plays: [] },
     leader: winner,
     currentPlayer: winner,
     tricksWon: updatedTricksWon,
-    phase: remainingCards === 0 ? 'SCORING' : state.phase,
+    trickIndex: state.trickIndex + 1,
+    lastTrick: { winner, cards: updatedPlays },
     log: [...state.log, `Trick won by Player ${winner}`]
+  };
+
+  if (remainingCards === 0) {
+    const scored = scoreRoundMVP(baseNextState);
+    const balances = { ...baseNextState.balances };
+    Object.entries(scored.payouts).forEach(([pid, amount]) => {
+      const player = Number.parseInt(pid, 10) as PlayerId;
+      balances[player] = (balances[player] ?? 0) + amount;
+    });
+
+    const nextState: EngineState = {
+      ...baseNextState,
+      phase: 'ROUND_END',
+      lastScore: scored,
+      balances
+    };
+    assertEngineInvariants(nextState);
+    return nextState;
+  }
+
+  const nextState = {
+    ...baseNextState,
+    phase: state.phase
   };
 
   assertEngineInvariants(nextState);

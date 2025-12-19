@@ -10,6 +10,8 @@ export type ScoreBreakdown = {
   contractSuccess: boolean;
   trickPointsBidder: number;
   trickPointsDefenders: number;
+  belaPointsBidder: number;
+  belaPointsDefenders: number;
   payouts: Record<PlayerId, number>;
   notes: string[];
   silentBonuses?: { name: string; points: number }[];
@@ -35,8 +37,10 @@ const belaBonus = (state: EngineState): Record<PlayerId, number> =>
     { 0: 0, 1: 0, 2: 0 } as Record<PlayerId, number>
   );
 
-export const computeTrickPoints = (state: EngineState): { bidderTeam: number; defenders: number } => {
-  if (state.gameType === 'NO_TRUMP') return { bidderTeam: 0, defenders: 0 };
+export const computeTrickPoints = (
+  state: EngineState
+): { bidderTeam: number; defenders: number; belaBidder: number; belaDefenders: number } => {
+  if (state.gameType === 'NO_TRUMP') return { bidderTeam: 0, defenders: 0, belaBidder: 0, belaDefenders: 0 };
   const bidder = state.highestBidder ?? 0;
   const bidderTeam: PlayerId[] = [bidder];
   const defenders: PlayerId[] = ([0, 1, 2] as PlayerId[]).filter((p) => p !== bidder);
@@ -50,10 +54,12 @@ export const computeTrickPoints = (state: EngineState): { bidderTeam: number; de
     playerTotals[player] = zsírPoints + lastBonus[player] + bela[player];
   });
 
+  const belaBidder = bidderTeam.reduce((sum, pid) => sum + (bela[pid] ?? 0), 0);
+  const belaDefenders = defenders.reduce((sum, pid) => sum + (bela[pid] ?? 0), 0);
   const bidderTotal = bidderTeam.reduce((sum, pid) => sum + (playerTotals[pid] ?? 0), 0);
   const defenderTotal = defenders.reduce((sum, pid) => sum + (playerTotals[pid] ?? 0), 0);
 
-  return { bidderTeam: bidderTotal, defenders: defenderTotal };
+  return { bidderTeam: bidderTotal, defenders: defenderTotal, belaBidder, belaDefenders };
 };
 
 export const evaluateContractMVP = (state: EngineState): { success: boolean; notes: string[] } => {
@@ -164,6 +170,8 @@ export const scoreRoundMVP = (state: EngineState): ScoreBreakdown => {
     contractSuccess: contractResult.success,
     trickPointsBidder: trickPoints.bidderTeam,
     trickPointsDefenders: trickPoints.defenders,
+    belaPointsBidder: trickPoints.belaBidder,
+    belaPointsDefenders: trickPoints.belaDefenders,
     payouts,
     notes,
     silentBonuses

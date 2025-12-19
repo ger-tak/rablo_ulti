@@ -55,6 +55,22 @@ describe('computeTrickPoints', () => {
     const points = computeTrickPoints(state);
     expect(points.bidderTeam).toBe(30 + 40); // 2 zsír + last trick + Béla
     expect(points.defenders).toBe(0);
+    expect(points.belaBidder).toBe(40);
+    expect(points.belaDefenders).toBe(0);
+  });
+
+  it('tracks Béla points separately for defenders', () => {
+    const state = makeState({
+      highestBidder: 0,
+      belaAnnouncements: [
+        { player: 1, suit: 'tok', value: 20 },
+        { player: 0, suit: 'piros', value: 40 }
+      ]
+    });
+
+    const points = computeTrickPoints(state);
+    expect(points.belaBidder).toBe(40);
+    expect(points.belaDefenders).toBe(20);
   });
 });
 
@@ -125,5 +141,24 @@ describe('scoreRoundMVP silent bonuses', () => {
     expect(result.notes.some((n) => n.includes('Silent 100'))).toBe(true);
     expect(result.notes.some((n) => n.includes('Silent Ulti'))).toBe(true);
     expect(result.contractSuccess).toBe(true);
+  });
+
+  it('surface Béla points in breakdown', () => {
+    const state = makeState({
+      highestBidder: 0,
+      belaAnnouncements: [
+        { player: 0, suit: 'piros', value: 40 },
+        { player: 1, suit: 'makk', value: 20 }
+      ],
+      selectedBidId: 'passz',
+      highestBidId: 'passz',
+      tricksWon: { 0: [], 1: [], 2: [] }
+    });
+
+    const result = scoreRoundMVP(state);
+    expect(result.belaPointsBidder).toBe(40);
+    expect(result.belaPointsDefenders).toBe(20);
+    expect(result.trickPointsBidder).toBe(40);
+    expect(result.trickPointsDefenders).toBe(20);
   });
 });

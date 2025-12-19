@@ -615,6 +615,9 @@ export const playCard = (state: EngineState, player: PlayerId, card: Card): Engi
 
   const remainingCards =
     updatedHands[0].length + updatedHands[1].length + updatedHands[2].length;
+  const completedTrickIndex = state.trickIndex + 1;
+  const isRoundEnd = remainingCards === 0;
+  const nextTrickIndex = isRoundEnd ? 10 : completedTrickIndex;
 
   const baseNextState: EngineState = {
     ...state,
@@ -623,12 +626,12 @@ export const playCard = (state: EngineState, player: PlayerId, card: Card): Engi
     leader: winner,
     currentPlayer: winner,
     tricksWon: updatedTricksWon,
-    trickIndex: state.trickIndex + 1,
+    trickIndex: nextTrickIndex,
     lastTrick: { winner, cards: updatedPlays },
     log: [...state.log, `Trick won by Player ${winner}`]
   };
 
-  if (remainingCards === 0) {
+  if (isRoundEnd) {
     const scored = scoreRoundMVP(baseNextState);
     const balances = { ...baseNextState.balances };
     Object.entries(scored.payouts).forEach(([pid, amount]) => {

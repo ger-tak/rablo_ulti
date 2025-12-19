@@ -39,6 +39,22 @@ describe('legalMoves', () => {
     expect(legalMoves(state, 1)).toEqual([card('piros', 'A')]);
   });
 
+  it('requires overtake when possible while following suit', () => {
+    const state = makeState({
+      trick: {
+        leader: 0,
+        plays: [{ player: 0, card: card('makk', '10') }]
+      },
+      hands: {
+        0: [],
+        1: [card('makk', 'Alsó'), card('makk', '8')],
+        2: []
+      }
+    });
+
+    expect(legalMoves(state, 1)).toEqual([card('makk', 'Alsó')]);
+  });
+
   it('forces trump when void in lead suit and trump is declared', () => {
     const state = makeState({
       trick: {
@@ -56,6 +72,26 @@ describe('legalMoves', () => {
     });
 
     expect(legalMoves(state, 1)).toEqual([card('zold', '10')]);
+  });
+
+  it('requires overtrump when a lower trump is winning', () => {
+    const state = makeState({
+      trick: {
+        leader: 0,
+        plays: [
+          { player: 0, card: card('piros', '9') },
+          { player: 1, card: card('zold', '8') }
+        ]
+      },
+      trumpSuit: 'zold',
+      hands: {
+        0: [],
+        1: [],
+        2: [card('zold', '10'), card('zold', '7')]
+      }
+    });
+
+    expect(legalMoves(state, 2)).toEqual([card('zold', '10')]);
   });
 });
 
@@ -81,8 +117,8 @@ describe('trickWinner', () => {
       trick: {
         leader: 1,
         plays: [
-          { player: 1, card: card('makk', '9') },
-          { player: 2, card: card('makk', '10') },
+          { player: 1, card: card('makk', '10') },
+          { player: 2, card: card('makk', 'K') },
           { player: 0, card: card('tok', 'A') }
         ]
       }

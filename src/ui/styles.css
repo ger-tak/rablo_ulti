@@ -16,6 +16,12 @@
   align-items: start;
 }
 
+.side-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .table {
   position: relative;
   background: #ffffff;
@@ -80,6 +86,10 @@
   flex-wrap: wrap;
 }
 
+.hand-cards.backs {
+  justify-content: center;
+}
+
 .hand-vertical .hand-cards {
   flex-direction: column;
 }
@@ -99,6 +109,7 @@
   color: #0f172a;
   cursor: pointer;
   transition: transform 0.1s ease, box-shadow 0.1s ease;
+  animation: card-pop 0.18s ease;
 }
 
 .card:hover {
@@ -106,9 +117,38 @@
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
 }
 
+.card-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.card-legal {
+  border: 1px solid #38bdf8;
+}
+
 .card-sm {
   min-width: 54px;
   min-height: 70px;
+}
+
+.card-back {
+  width: 100%;
+  text-align: center;
+  font-weight: 700;
+  background: linear-gradient(145deg, #1e293b, #111827);
+  color: #e2e8f0;
+}
+
+@keyframes card-pop {
+  0% {
+    transform: scale(0.96);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .card-rank {
@@ -135,6 +175,7 @@
   gap: 10px;
   justify-content: center;
   margin-top: 10px;
+  transition: opacity 0.2s ease;
 }
 
 .trick-card {
@@ -210,6 +251,15 @@
   letter-spacing: 0.5px;
 }
 
+.info-chip {
+  background: #111827;
+  color: #e2e8f0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
 .log-panel {
   background: #ffffff;
   border-radius: 12px;
@@ -222,6 +272,84 @@
 
 .log-panel.open {
   max-height: 420px;
+}
+
+.debug-panel {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+}
+
+.debug-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+}
+
+.debug-body {
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.debug-section h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.debug-pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 12px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.pill-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pill.muted {
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+.secondary {
+  background: #e2e8f0;
+  color: #0f172a;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ghost {
+  background: transparent;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .log-header {

@@ -1,9 +1,9 @@
+import type { GameType } from './types';
+
 export type TrumpChoice =
   | { kind: 'bidder' }
   | { kind: 'piros' }
   | { kind: 'none' };
-
-export type GameType = 'TRUMP' | 'NO_TRUMP';
 
 export type SilentBonuses = {
   csendes100: number | null;

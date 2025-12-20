@@ -2,12 +2,14 @@ import { getBidById, type ScoreBreakdown } from '../../game';
 
 interface RoundSummaryProps {
   score: ScoreBreakdown;
+  balances: Record<number, number>;
   onNextRound: () => void;
 }
 
-export const RoundSummary = ({ score, onNextRound }: RoundSummaryProps) => {
+export const RoundSummary = ({ score, balances, onNextRound }: RoundSummaryProps) => {
   const bid = getBidById(score.bidId);
   const payoutEntries = Object.entries(score.payouts);
+  const balanceEntries = [0, 1, 2].map((pid) => ({ pid, balance: balances[pid] ?? 0 }));
   const silentEntries = [
     {
       key: 'silent100',
@@ -42,6 +44,9 @@ export const RoundSummary = ({ score, onNextRound }: RoundSummaryProps) => {
           </div>
           <div className="summary-row">
             <strong>Contract:</strong> {score.contractSuccess ? 'Success' : 'Failed'}
+          </div>
+          <div className="summary-row">
+            <strong>Kontra:</strong> Level {score.kontraLevel} (x{score.kontraMultiplier})
           </div>
           <div className="summary-row">
             <strong>Trick points:</strong> Bidder {score.trickPointsBidder} / Defenders {score.trickPointsDefenders}
@@ -79,6 +84,16 @@ export const RoundSummary = ({ score, onNextRound }: RoundSummaryProps) => {
                 <li key={entry.key} style={{ fontWeight: entry.achieved ? 'bold' : undefined }}>
                   {entry.label}: {entry.eligible !== null ? `${entry.eligible} points` : 'Not eligible'} (
                   {entry.achieved ? 'achieved' : 'not achieved'})
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="summary-row">
+            <strong>Balances:</strong>
+            <ul>
+              {balanceEntries.map(({ pid, balance }) => (
+                <li key={pid}>
+                  P{pid}: {balance}
                 </li>
               ))}
             </ul>

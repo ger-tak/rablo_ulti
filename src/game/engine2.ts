@@ -34,7 +34,8 @@ export interface EngineState extends GameState {
   belaAnnouncements: Array<{ player: PlayerId; suit: Suit; value: 20 | 40 }>;
   lastTrick: { winner: PlayerId; plays: TrickPlay[] } | null;
   kontraLevel: number;
-  kontraTurn?: 'DEFENDERS' | 'BIDDER';
+  kontraTurn: 'DEFENDERS' | 'BIDDER' | null;
+  kontraLocked: boolean;
   lastScore?: ScoreBreakdown | undefined;
   balances: Record<PlayerId, number>;
 }
@@ -52,6 +53,13 @@ const toRulesState = (state: EngineState): GameState => ({
 });
 
 const emptyTricksWon = (): Record<PlayerId, Card[]> => ({ 0: [], 1: [], 2: [] });
+
+const initializeKontraForPlay = (state: EngineState): EngineState => ({
+  ...state,
+  kontraLevel: 0,
+  kontraTurn: 'DEFENDERS',
+  kontraLocked: false
+});
 
 const prepareForPlay = (state: EngineState): EngineState => {
   const handSizes = [state.hands[0].length, state.hands[1].length, state.hands[2].length];
@@ -101,7 +109,8 @@ export const newGame = (seed?: number): EngineState => {
     belaAnnouncements: [],
     lastTrick: null,
     kontraLevel: 0,
-    kontraTurn: undefined,
+    kontraTurn: null,
+    kontraLocked: false,
     lastScore: undefined,
     balances: { 0: 0, 1: 0, 2: 0 }
   };
@@ -142,49 +151,36 @@ export const announceBela = (state: EngineState, player: PlayerId, suit: Suit): 
 
 export const callKontra = (state: EngineState, player: PlayerId): EngineState => {
   assertPlayFirstTrick(state);
+  if (state.kontraLocked) throw new Error('Kontra is locked for this round');
   if (state.trick.plays.length > 0) throw new Error('Kontra only before first card is played');
   const bidder = state.highestBidder;
   if (bidder === undefined) throw new Error('No bidder to kontra');
 
   if (state.kontraLevel >= 3) throw new Error('Maximum kontra level reached');
 
-  if (state.kontraLevel === 0) {
-    if (player === bidder) throw new Error('Defenders call kontra first');
-    const next: EngineState = {
-      ...state,
-      kontraLevel: 1,
-      kontraTurn: 'BIDDER',
-      log: [...state.log, `P${player} calls kontra`]
-    };
-    assertEngineInvariants(next);
-    return next;
+  const expectedTurn: 'DEFENDERS' | 'BIDDER' =
+    state.kontraLevel === 0 ? 'DEFENDERS' : state.kontraLevel === 1 ? 'BIDDER' : 'DEFENDERS';
+
+  if (state.kontraTurn !== expectedTurn) {
+    throw new Error('Not the correct side to call kontra');
   }
 
-  if (state.kontraTurn === 'BIDDER') {
-    if (player !== bidder) throw new Error('Bidder may rekontra now');
-    const next: EngineState = {
-      ...state,
-      kontraLevel: state.kontraLevel + 1,
-      kontraTurn: 'DEFENDERS',
-      log: [...state.log, `P${player} calls rekontra`]
-    };
-    assertEngineInvariants(next);
-    return next;
+  if ((expectedTurn === 'DEFENDERS' && player === bidder) || (expectedTurn === 'BIDDER' && player !== bidder)) {
+    throw new Error('Invalid player for kontra turn');
   }
 
-  if (state.kontraTurn === 'DEFENDERS') {
-    if (player === bidder) throw new Error('Defenders may call next kontra');
-    const next: EngineState = {
-      ...state,
-      kontraLevel: state.kontraLevel + 1,
-      kontraTurn: 'BIDDER',
-      log: [...state.log, `P${player} calls kontra (level ${state.kontraLevel + 1})`]
-    };
-    assertEngineInvariants(next);
-    return next;
-  }
+  const nextLevel = state.kontraLevel + 1;
+  const nextTurn: 'DEFENDERS' | 'BIDDER' = expectedTurn === 'DEFENDERS' ? 'BIDDER' : 'DEFENDERS';
+  const label = nextLevel === 1 ? 'Kontra' : nextLevel === 2 ? 'Rekontra' : 'Szubkontra';
 
-  throw new Error('Invalid kontra state');
+  const next: EngineState = {
+    ...state,
+    kontraLevel: nextLevel,
+    kontraTurn: nextTurn,
+    log: [...state.log, `P${player} calls ${label}`]
+  };
+  assertEngineInvariants(next);
+  return next;
 };
 
 export const nextRound = (state: EngineState): EngineState => {
@@ -216,9 +212,10 @@ export const nextRound = (state: EngineState): EngineState => {
     belaAnnouncements: [],
     lastTrick: null,
     kontraLevel: 0,
-    kontraTurn: undefined,
+    kontraTurn: null,
+    kontraLocked: false,
     lastScore: undefined,
-    balances: state.balances
+    balances: { ...state.balances }
   };
 
   const nextState = deal(baseState, false);
@@ -267,7 +264,8 @@ export const deal = (state: EngineState, cut: boolean): EngineState => {
     belaAnnouncements: [],
     lastTrick: null,
     kontraLevel: 0,
-    kontraTurn: undefined,
+    kontraTurn: null,
+    kontraLocked: false,
     lastScore: undefined
   };
 
@@ -400,7 +398,8 @@ const finalizeBid = (state: EngineState, bidId: string, contractBidder: PlayerId
       trickIndex: 0,
       belaAnnouncements: [],
       kontraLevel: 0,
-      kontraTurn: undefined,
+      kontraTurn: null,
+      kontraLocked: false,
       lastTrick: null,
       lastScore: undefined,
       log: [...state.log, `Bidding won by P${contractBidder} with ${bid.name}`]
@@ -423,13 +422,14 @@ const finalizeBid = (state: EngineState, bidId: string, contractBidder: PlayerId
     trickIndex: 0,
     belaAnnouncements: [],
     kontraLevel: 0,
-    kontraTurn: undefined,
+    kontraTurn: null,
+    kontraLocked: false,
     lastTrick: null,
     lastScore: undefined,
     log: [...state.log, `Bidding won by P${contractBidder} with ${bid.name}`]
   });
 
-  return prepared;
+  return initializeKontraForPlay(prepared);
 };
 
 export const passBid = (state: EngineState, player: PlayerId): EngineState => {
@@ -511,11 +511,15 @@ export const declareTrump = (state: EngineState, player: PlayerId, suit: Suit): 
     gameType: 'TRUMP',
     phase: 'PLAY',
     trick: { leader: state.leader, plays: [] },
+    kontraLevel: 0,
+    kontraTurn: null,
+    kontraLocked: false,
     log: [...state.log, `Trump declared as ${suit}`]
   });
 
-  assertEngineInvariants(preparedState);
-  return preparedState;
+  const initialized = initializeKontraForPlay(preparedState);
+  assertEngineInvariants(initialized);
+  return initialized;
 };
 const deriveGameType = (
   bid: BidDefinition,
@@ -540,7 +544,7 @@ export const startPlay = (state: EngineState, bidId: string, trumpSuit?: Suit): 
   const leader = state.currentPlayer;
   const trick: TrickState = { leader, plays: [] };
 
-  const nextState = prepareForPlay({
+  const preparedState = prepareForPlay({
     ...state,
     selectedBidId: bidId,
     gameType,
@@ -552,12 +556,14 @@ export const startPlay = (state: EngineState, bidId: string, trumpSuit?: Suit): 
     trickIndex: 0,
     belaAnnouncements: [],
     kontraLevel: 0,
-    kontraTurn: undefined,
+    kontraTurn: null,
+    kontraLocked: false,
     lastTrick: null,
     lastScore: undefined,
     log: [...state.log, `Play started with bid ${bid.name}`]
   });
 
+  const nextState = initializeKontraForPlay(preparedState);
   assertEngineInvariants(nextState);
   return nextState;
 };
@@ -593,12 +599,14 @@ export const playCard = (state: EngineState, player: PlayerId, card: Card): Engi
 
   const updatedPlays = [...state.trick.plays, { player, card }];
   const updatedTrick: TrickState = { leader: state.trick.leader, plays: updatedPlays };
+  const kontraLocked = state.kontraLocked || (state.trickIndex === 0 && state.trick.plays.length === 0);
 
   if (updatedPlays.length < 3) {
     const nextState = {
       ...state,
       hands: updatedHands,
       trick: updatedTrick,
+      kontraLocked,
       currentPlayer: nextPlayer(player)
     };
     assertEngineInvariants(nextState);
@@ -628,6 +636,7 @@ export const playCard = (state: EngineState, player: PlayerId, card: Card): Engi
     tricksWon: updatedTricksWon,
     trickIndex: nextTrickIndex,
     lastTrick: { winner, plays: updatedPlays },
+    kontraLocked,
     log: [...state.log, `Trick won by Player ${winner}`]
   };
 

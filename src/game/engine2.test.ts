@@ -40,7 +40,8 @@ const makeState = (overrides: Partial<EngineState>): EngineState => ({
   belaAnnouncements: [],
   lastTrick: null,
   kontraLevel: 0,
-  kontraTurn: undefined,
+  kontraTurn: null,
+  kontraLocked: false,
   lastScore: undefined,
   balances: { 0: 0, 1: 0, 2: 0 },
   ...overrides
@@ -276,6 +277,7 @@ describe('kontra ordering', () => {
       trickIndex: 0,
       trick: { leader: 0, plays: [] },
       highestBidder: 0,
+      kontraTurn: 'DEFENDERS',
       hands: {
         0: Array(10).fill(card('makk', '7')),
         1: Array(10).fill(card('makk', '8')),

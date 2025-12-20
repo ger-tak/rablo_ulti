@@ -112,6 +112,7 @@ function App() {
   };
   const trick = state.trick;
   const log = [...state.log, ...messageLog];
+  const kontraMultiplier = 2 ** (state.kontraLevel ?? 0);
 
   const handleBid = (bidId: string) => {
     try {
@@ -209,6 +210,7 @@ function App() {
       return (
         <RoundSummary
           score={state.lastScore}
+          balances={state.balances}
           onNextRound={handleNextRound}
         />
       );
@@ -287,8 +289,26 @@ function App() {
     }
   }, [eligibleBelaSuits.length]);
 
-  const canCallKontra =
+  const bidder = state.highestBidder;
+  const isDefender = bidder !== undefined ? state.currentPlayer !== bidder : false;
+  const kontraWindowOpen =
     state.phase === 'PLAY' && state.trickIndex === 0 && state.trick.plays.length === 0;
+  const kontraCallAvailable = state.kontraLevel < 3;
+  const kontraLabel =
+    state.kontraLevel === 0 ? 'Kontra' : state.kontraLevel === 1 ? 'Rekontra' : 'Szubkontra';
+  const kontraAllowedSide =
+    (state.kontraLevel === 0 && isDefender) ||
+    (state.kontraLevel === 1 && bidder !== undefined && state.currentPlayer === bidder) ||
+    (state.kontraLevel === 2 && isDefender);
+  const kontraTurnMatches =
+    state.kontraTurn === 'DEFENDERS'
+      ? isDefender
+      : state.kontraTurn === 'BIDDER'
+        ? bidder !== undefined && state.currentPlayer === bidder
+        : false;
+  const showKontraButton = kontraWindowOpen;
+  const kontraEnabled =
+    kontraCallAvailable && kontraAllowedSide && kontraTurnMatches && kontraWindowOpen && !state.kontraLocked;
 
   return (
     <div className="page">
@@ -298,6 +318,8 @@ function App() {
         leader={state.leader}
         currentPlayer={state.currentPlayer}
         balances={state.balances}
+        kontraLevel={state.kontraLevel}
+        kontraMultiplier={kontraMultiplier}
         onSeedChange={setSeed}
         onNewGame={handleNewGame}
       />
@@ -392,11 +414,16 @@ function App() {
               </ul>
             </div>
           )}
-          {canCallKontra && (
+          {showKontraButton && (
             <div className="action-group">
               <span>Kontra:</span>
-              <button type="button" className="secondary" onClick={handleCallKontra}>
-                Call
+              <button
+                type="button"
+                className="secondary"
+                onClick={handleCallKontra}
+                disabled={!kontraEnabled}
+              >
+                {kontraLabel}
               </button>
             </div>
           )}

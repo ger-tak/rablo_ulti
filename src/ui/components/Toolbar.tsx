@@ -4,11 +4,23 @@ interface ToolbarProps {
   leader: number;
   currentPlayer: number;
   balances: Record<number, number>;
+  kontraLevel: number;
+  kontraMultiplier: number;
   onSeedChange: (seed: string) => void;
   onNewGame: () => void;
 }
 
-export const Toolbar = ({ seed, phase, leader, currentPlayer, balances, onSeedChange, onNewGame }: ToolbarProps) => (
+export const Toolbar = ({
+  seed,
+  phase,
+  leader,
+  currentPlayer,
+  balances,
+  kontraLevel,
+  kontraMultiplier,
+  onSeedChange,
+  onNewGame
+}: ToolbarProps) => (
   <div className="toolbar">
     <div className="toolbar-left">
       <button type="button" className="primary" onClick={onNewGame}>
@@ -28,6 +40,7 @@ export const Toolbar = ({ seed, phase, leader, currentPlayer, balances, onSeedCh
       <span className="phase-chip">{phase}</span>
       <span className="info-chip">Leader: P{leader}</span>
       <span className="info-chip">Current: P{currentPlayer}</span>
+      <span className="info-chip">Kontra: L{kontraLevel} (x{kontraMultiplier})</span>
       <span className="info-chip balances">
         Balances:
         {[0, 1, 2].map((pid) => (

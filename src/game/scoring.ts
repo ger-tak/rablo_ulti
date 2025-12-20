@@ -12,6 +12,8 @@ export type ScoreBreakdown = {
   trickPointsDefenders: number;
   belaPointsBidder: number;
   belaPointsDefenders: number;
+  kontraLevel: number;
+  kontraMultiplier: number;
   payouts: Record<PlayerId, number>;
   notes: string[];
   silent: {
@@ -143,10 +145,16 @@ export const scoreRoundMVP = (state: EngineState): ScoreBreakdown => {
     (silentEligibility.silentDurchmarsch ?? 0) * (silentAchievedDurchmarsch ? 1 : 0) +
     (silentEligibility.silentUlti ?? 0) * (silentAchievedUlti ? 1 : 0);
 
-  const kontraMultiplier = 2 ** (state.kontraLevel ?? 0);
-  const totalContractPoints = bid.basePoints + silentPoints;
-  const pointValue = totalContractPoints * kontraMultiplier;
-  const defenderDelta = contractResult.success ? -pointValue : pointValue;
+  const kontraLevel = state.kontraLevel ?? 0;
+  const kontraMultiplier = 2 ** kontraLevel;
+  const belaPointsBidder = trickPoints.belaBidder * kontraMultiplier;
+  const belaPointsDefenders = trickPoints.belaDefenders * kontraMultiplier;
+  const trickPointsBidder = trickPoints.bidderTeam - trickPoints.belaBidder + belaPointsBidder;
+  const trickPointsDefenders = trickPoints.defenders - trickPoints.belaDefenders + belaPointsDefenders;
+  const basePoints = bid.basePoints * kontraMultiplier;
+  const silentPointsTotal = silentPoints * kontraMultiplier;
+  const totalContractPoints = basePoints + silentPointsTotal;
+  const defenderDelta = contractResult.success ? -totalContractPoints : totalContractPoints;
 
   const payouts: Record<PlayerId, number> = {
     [bidder]: -defenderDelta * defenders.length,
@@ -169,12 +177,14 @@ export const scoreRoundMVP = (state: EngineState): ScoreBreakdown => {
     bidder,
     defenders,
     bidId,
-    basePoints: bid.basePoints,
+    basePoints,
     contractSuccess: contractResult.success,
-    trickPointsBidder: trickPoints.bidderTeam,
-    trickPointsDefenders: trickPoints.defenders,
-    belaPointsBidder: trickPoints.belaBidder,
-    belaPointsDefenders: trickPoints.belaDefenders,
+    trickPointsBidder,
+    trickPointsDefenders,
+    belaPointsBidder,
+    belaPointsDefenders,
+    kontraLevel,
+    kontraMultiplier,
     payouts,
     notes,
     silent: {
@@ -184,7 +194,7 @@ export const scoreRoundMVP = (state: EngineState): ScoreBreakdown => {
         silentUlti: silentAchievedUlti,
         silentDurchmarsch: silentAchievedDurchmarsch
       },
-      pointsBidder: silentPoints
+      pointsBidder: silentPointsTotal
     }
   };
 };
